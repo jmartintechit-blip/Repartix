@@ -9,9 +9,8 @@ build/
 .env.local
 *.env
 
-# sqlite db files (generados por migraciones, no se versionan)
-backend/data/*.sqlite
-backend/data/*.sqlite3
+# carpeta de datos sqlite (generada por migraciones, incluye .sqlite/-wal/-shm)
+backend/data/
 
 # uploads locales de desarrollo (si se usan antes de tener Cloudinary configurado)
 backend/uploads/

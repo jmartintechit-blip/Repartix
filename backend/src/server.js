@@ -1,6 +1,9 @@
 import 'dotenv/config';
 import express from 'express';
 import cors from 'cors';
+import { migrate } from './db/migrate.js';
+
+migrate();
 
 const app = express();
 const PORT = process.env.PORT || 3001;
