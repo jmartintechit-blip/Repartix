@@ -1,7 +1,9 @@
 import 'dotenv/config';
+import './config/env.js';
 import express from 'express';
 import cors from 'cors';
 import { migrate } from './db/migrate.js';
+import authRoutes from './routes/auth.routes.js';
 
 migrate();
 
@@ -13,6 +15,20 @@ app.use(express.json());
 
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok' });
+});
+
+app.use('/api/auth', authRoutes);
+
+app.use((req, res) => {
+  res.status(404).json({ error: 'Ruta no encontrada' });
+});
+
+app.use((err, req, res, next) => {
+  if (err.type === 'entity.parse.failed') {
+    return res.status(400).json({ error: 'JSON invalido en el cuerpo de la peticion' });
+  }
+  console.error(err);
+  res.status(500).json({ error: 'Error interno del servidor' });
 });
 
 app.listen(PORT, () => {
