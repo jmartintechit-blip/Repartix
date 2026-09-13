@@ -1,21 +1,32 @@
 import { useEffect, useState } from 'react';
-import { useParams, Link } from 'react-router-dom';
+import { useParams, useNavigate, Link } from 'react-router-dom';
 import AppShell from '../components/layout/AppShell.jsx';
 import Card from '../components/ui/Card.jsx';
 import Avatar from '../components/ui/Avatar.jsx';
+import Button from '../components/ui/Button.jsx';
+import Modal from '../components/ui/Modal.jsx';
+import FormularioNuevoGasto from '../components/gastos/FormularioNuevoGasto.jsx';
 import { obtenerGrupo } from '../api/grupos.js';
+import { listarGastos } from '../api/gastos.js';
 import { useAuth } from '../context/AuthContext.jsx';
+import { formatearMoneda, formatearFecha } from '../utils/formato.js';
 import styles from './GrupoDetalle.module.css';
 
 export default function GrupoDetalle() {
   const { id } = useParams();
   const { token } = useAuth();
+  const navigate = useNavigate();
 
   const [grupo, setGrupo] = useState(null);
   const [miembros, setMiembros] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState('');
   const [copiado, setCopiado] = useState(false);
+
+  const [gastos, setGastos] = useState([]);
+  const [cargandoGastos, setCargandoGastos] = useState(true);
+  const [errorGastos, setErrorGastos] = useState('');
+  const [modalNuevoGasto, setModalNuevoGasto] = useState(false);
 
   useEffect(() => {
     let cancelado = false;
@@ -38,6 +49,25 @@ export default function GrupoDetalle() {
     };
   }, [token, id]);
 
+  useEffect(() => {
+    let cancelado = false;
+    setCargandoGastos(true);
+    setErrorGastos('');
+    listarGastos(token, id)
+      .then((datos) => {
+        if (!cancelado) setGastos(datos.gastos);
+      })
+      .catch((err) => {
+        if (!cancelado) setErrorGastos(err.message);
+      })
+      .finally(() => {
+        if (!cancelado) setCargandoGastos(false);
+      });
+    return () => {
+      cancelado = true;
+    };
+  }, [token, id]);
+
   function copiarCodigo() {
     navigator.clipboard
       .writeText(grupo.codigo_invitacion)
@@ -49,6 +79,10 @@ export default function GrupoDetalle() {
         // Portapapeles bloqueado por el navegador (permisos, contexto no seguro, etc.):
         // el codigo sigue visible en pantalla, no hace falta romper la interaccion.
       });
+  }
+
+  function nombreDe(usuarioId) {
+    return miembros.find((m) => m.id === usuarioId)?.nombre ?? '—';
   }
 
   if (cargando) {
@@ -99,11 +133,54 @@ export default function GrupoDetalle() {
       </section>
 
       <section className={styles.seccion}>
-        <h2 className={styles.subtitulo}>Gastos</h2>
-        <Card>
-          <p>Aqui apareceran los gastos del grupo (se completa en la Fase 9).</p>
-        </Card>
+        <div className={styles.gastosEncabezado}>
+          <h2 className={styles.subtitulo}>Gastos</h2>
+          <Button onClick={() => setModalNuevoGasto(true)}>Nuevo gasto</Button>
+        </div>
+
+        {cargandoGastos && <p className={styles.mensaje}>Cargando gastos...</p>}
+        {!cargandoGastos && errorGastos && <p className={styles.mensajeError}>{errorGastos}</p>}
+
+        {!cargandoGastos && !errorGastos && gastos.length === 0 && (
+          <Card>
+            <p>Todavia no hay gastos en este grupo.</p>
+          </Card>
+        )}
+
+        {!cargandoGastos && gastos.length > 0 && (
+          <div className={styles.gastos}>
+            {gastos.map((gasto) => (
+              <Card
+                key={gasto.id}
+                className={styles.gasto}
+                onClick={() => navigate(`/grupos/${id}/gastos/${gasto.id}`)}
+                role="button"
+                tabIndex={0}
+                onKeyDown={(e) => e.key === 'Enter' && navigate(`/grupos/${id}/gastos/${gasto.id}`)}
+              >
+                <div>
+                  <p className={styles.gastoDescripcion}>{gasto.descripcion}</p>
+                  <p className={styles.gastoMeta}>
+                    Pagado por {nombreDe(gasto.pagado_por)} · {formatearFecha(gasto.fecha)}
+                  </p>
+                </div>
+                <p className={styles.gastoImporte}>{formatearMoneda(gasto.monto_total)}</p>
+              </Card>
+            ))}
+          </div>
+        )}
       </section>
+
+      <Modal open={modalNuevoGasto} onClose={() => setModalNuevoGasto(false)} title="Nuevo gasto">
+        <FormularioNuevoGasto
+          grupoId={id}
+          miembros={miembros}
+          onCreado={(gasto) => {
+            setModalNuevoGasto(false);
+            navigate(`/grupos/${id}/gastos/${gasto.id}`);
+          }}
+        />
+      </Modal>
     </AppShell>
   );
 }

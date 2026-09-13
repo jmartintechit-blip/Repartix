@@ -78,3 +78,48 @@
   font-size: 0.875rem;
   font-weight: 600;
 }
+
+.gastosEncabezado {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-4);
+}
+
+.gastos {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.gasto {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  cursor: pointer;
+  transition:
+    box-shadow var(--transition-fast),
+    transform var(--transition-fast);
+}
+.gasto:hover {
+  box-shadow: var(--shadow-md);
+  transform: translateY(-1px);
+}
+
+.gastoDescripcion {
+  font-weight: 700;
+}
+
+.gastoMeta {
+  margin-top: var(--space-1);
+  font-size: 0.8125rem;
+  color: var(--color-ink-muted);
+}
+
+.gastoImporte {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 1.0625rem;
+  white-space: nowrap;
+}
