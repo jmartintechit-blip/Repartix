@@ -6,6 +6,7 @@ import { migrate } from './db/migrate.js';
 import authRoutes from './routes/auth.routes.js';
 import gruposRoutes from './routes/grupos.routes.js';
 import gastosRoutes from './routes/gastos.routes.js';
+import liquidacionesRoutes from './routes/liquidaciones.routes.js';
 
 migrate();
 
@@ -22,6 +23,7 @@ app.get('/api/health', (req, res) => {
 app.use('/api/auth', authRoutes);
 app.use('/api/grupos', gruposRoutes);
 app.use('/api/grupos/:grupoId/gastos', gastosRoutes);
+app.use('/api/grupos/:grupoId', liquidacionesRoutes);
 
 app.use((req, res) => {
   res.status(404).json({ error: 'Ruta no encontrada' });
