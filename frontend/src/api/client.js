@@ -1,0 +1,39 @@
+const BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3001/api';
+
+export class ApiError extends Error {
+  constructor(message, status, detalles) {
+    super(message);
+    this.name = 'ApiError';
+    this.status = status;
+    this.detalles = detalles;
+  }
+}
+
+export async function apiFetch(path, { method = 'GET', body, token } = {}) {
+  const headers = { 'Content-Type': 'application/json' };
+  if (token) headers.Authorization = `Bearer ${token}`;
+
+  let res;
+  try {
+    res = await fetch(`${BASE_URL}${path}`, {
+      method,
+      headers,
+      body: body !== undefined ? JSON.stringify(body) : undefined,
+    });
+  } catch {
+    throw new ApiError('No se pudo conectar con el servidor', 0);
+  }
+
+  let data = null;
+  try {
+    data = await res.json();
+  } catch {
+    // respuestas sin cuerpo (204, etc.)
+  }
+
+  if (!res.ok) {
+    throw new ApiError(data?.error ?? 'Error inesperado', res.status, data?.detalles);
+  }
+
+  return data;
+}

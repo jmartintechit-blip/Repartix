@@ -16,6 +16,15 @@
   gap: var(--space-4);
 }
 
+.errorGeneral {
+  background: var(--color-danger-soft);
+  color: var(--color-danger);
+  font-size: 0.875rem;
+  font-weight: 600;
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+}
+
 .footer {
   text-align: center;
   font-size: 0.875rem;
