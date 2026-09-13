@@ -114,10 +114,15 @@ export default function GrupoDetalle() {
 
       <div className={styles.encabezado}>
         <h1>{grupo.nombre}</h1>
-        <button type="button" className={styles.codigo} onClick={copiarCodigo}>
-          Codigo: <span className={styles.codigoValor}>{grupo.codigo_invitacion}</span>
-          <span className={styles.copiar}>{copiado ? 'Copiado' : 'Copiar'}</span>
-        </button>
+        <div className={styles.accionesEncabezado}>
+          <button type="button" className={styles.codigo} onClick={copiarCodigo}>
+            Codigo: <span className={styles.codigoValor}>{grupo.codigo_invitacion}</span>
+            <span className={styles.copiar}>{copiado ? 'Copiado' : 'Copiar'}</span>
+          </button>
+          <Button variant="secondary" onClick={() => navigate(`/grupos/${id}/liquidaciones`)}>
+            Balances y liquidaciones
+          </Button>
+        </div>
       </div>
 
       <section className={styles.seccion}>

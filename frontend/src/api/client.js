@@ -1,11 +1,12 @@
 const BASE_URL = import.meta.env.VITE_API_URL ?? 'http://localhost:3001/api';
 
 export class ApiError extends Error {
-  constructor(message, status, detalles) {
+  constructor(message, status, data) {
     super(message);
     this.name = 'ApiError';
     this.status = status;
-    this.detalles = detalles;
+    this.data = data ?? {};
+    this.detalles = this.data.detalles;
   }
 }
 
@@ -34,7 +35,7 @@ export async function apiFetch(path, { method = 'GET', body, token } = {}) {
   }
 
   if (!res.ok) {
-    throw new ApiError(data?.error ?? 'Error inesperado', res.status, data?.detalles);
+    throw new ApiError(data?.error ?? 'Error inesperado', res.status, data);
   }
 
   return data;

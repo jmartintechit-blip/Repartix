@@ -1,0 +1,126 @@
+.mensaje {
+  color: var(--color-ink-muted);
+}
+
+.mensajeError {
+  color: var(--color-danger);
+  font-weight: 600;
+  margin-bottom: var(--space-3);
+}
+
+.volver {
+  display: inline-block;
+  color: var(--color-ink-muted);
+  text-decoration: none;
+  font-size: 0.875rem;
+  margin-bottom: var(--space-4);
+}
+.volver:hover {
+  color: var(--color-ink);
+}
+
+h1 {
+  margin-bottom: var(--space-6);
+}
+
+.avisoCard {
+  border-color: var(--color-warning);
+  background: var(--color-warning-soft);
+}
+
+.avisoTitulo {
+  font-weight: 700;
+  color: var(--color-warning);
+  margin-bottom: var(--space-2);
+}
+
+.listaAvisos {
+  margin: var(--space-2) 0 0;
+  padding-left: var(--space-6);
+}
+.listaAvisos a {
+  color: var(--color-ink);
+  font-weight: 600;
+}
+
+.seccion {
+  margin-bottom: var(--space-8);
+}
+
+.subtitulo {
+  font-size: 1rem;
+  font-weight: 700;
+  margin-bottom: var(--space-3);
+}
+
+.balances {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: var(--space-3);
+}
+
+.balanceCard {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.balanceImporte {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 1.0625rem;
+}
+
+.positivo {
+  color: var(--color-secondary);
+}
+.negativo {
+  color: var(--color-danger);
+}
+.neutro {
+  color: var(--color-ink-muted);
+}
+
+.liquidacionesEncabezado {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-3);
+}
+
+.listaLiquidaciones {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.liquidacionCard {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+}
+
+.liquidacionCardPagada {
+  composes: liquidacionCard;
+  opacity: 0.7;
+}
+
+.liquidacionTexto {
+  font-size: 0.9375rem;
+}
+
+.liquidacionImporte {
+  margin-top: var(--space-1);
+  font-family: var(--font-mono);
+  font-weight: 700;
+  font-size: 1.125rem;
+}
+
+.historialTitulo {
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: var(--color-ink-muted);
+  margin: var(--space-6) 0 var(--space-3);
+}
