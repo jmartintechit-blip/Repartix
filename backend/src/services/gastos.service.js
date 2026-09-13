@@ -44,7 +44,7 @@ export function obtenerGastoCompleto(gastoId) {
   return { ...gasto, items };
 }
 
-export function crearGasto({ grupoId, pagadoPor, descripcion, montoTotal, fecha, items }) {
+export function crearGasto({ grupoId, pagadoPor, descripcion, montoTotal, fecha, items, imagenUrl }) {
   const transaccion = db.transaction(() => {
     const { lastInsertRowid: gastoId } = db
       .prepare(
@@ -56,7 +56,7 @@ export function crearGasto({ grupoId, pagadoPor, descripcion, montoTotal, fecha,
         pagado_por: pagadoPor,
         descripcion,
         monto_total: montoTotal,
-        imagen_url: null,
+        imagen_url: imagenUrl ?? null,
         fecha: fecha ?? null,
       });
 

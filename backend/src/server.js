@@ -2,6 +2,7 @@ import 'dotenv/config';
 import './config/env.js';
 import express from 'express';
 import cors from 'cors';
+import multer from 'multer';
 import { migrate } from './db/migrate.js';
 import authRoutes from './routes/auth.routes.js';
 import gruposRoutes from './routes/grupos.routes.js';
@@ -32,6 +33,9 @@ app.use((req, res) => {
 app.use((err, req, res, next) => {
   if (err.type === 'entity.parse.failed') {
     return res.status(400).json({ error: 'JSON invalido en el cuerpo de la peticion' });
+  }
+  if (err instanceof multer.MulterError || err.message?.startsWith('Formato de imagen no soportado')) {
+    return res.status(400).json({ error: err.message });
   }
   console.error(err);
   res.status(500).json({ error: 'Error interno del servidor' });

@@ -10,7 +10,9 @@ export class ApiError extends Error {
 }
 
 export async function apiFetch(path, { method = 'GET', body, token } = {}) {
-  const headers = { 'Content-Type': 'application/json' };
+  const esFormData = body instanceof FormData;
+  const headers = {};
+  if (!esFormData) headers['Content-Type'] = 'application/json';
   if (token) headers.Authorization = `Bearer ${token}`;
 
   let res;
@@ -18,7 +20,7 @@ export async function apiFetch(path, { method = 'GET', body, token } = {}) {
     res = await fetch(`${BASE_URL}${path}`, {
       method,
       headers,
-      body: body !== undefined ? JSON.stringify(body) : undefined,
+      body: body === undefined ? undefined : esFormData ? body : JSON.stringify(body),
     });
   } catch {
     throw new ApiError('No se pudo conectar con el servidor', 0);

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import Input from '../ui/Input.jsx';
 import Button from '../ui/Button.jsx';
-import { crearGasto } from '../../api/gastos.js';
+import { crearGasto, analizarTicket } from '../../api/gastos.js';
 import { useAuth } from '../../context/AuthContext.jsx';
 import styles from './FormularioNuevoGasto.module.css';
 
@@ -12,8 +12,11 @@ export default function FormularioNuevoGasto({ grupoId, miembros, onCreado }) {
   const [montoTotal, setMontoTotal] = useState('');
   const [pagadoPor, setPagadoPor] = useState(usuario.id);
   const [items, setItems] = useState([]);
+  const [imagenUrl, setImagenUrl] = useState(null);
   const [error, setError] = useState('');
   const [enviando, setEnviando] = useState(false);
+  const [analizando, setAnalizando] = useState(false);
+  const [avisoIA, setAvisoIA] = useState('');
 
   function agregarItem() {
     setItems((prev) => [...prev, { nombre_item: '', precio: '' }]);
@@ -25,6 +28,29 @@ export default function FormularioNuevoGasto({ grupoId, miembros, onCreado }) {
 
   function quitarItem(indice) {
     setItems((prev) => prev.filter((_, i) => i !== indice));
+  }
+
+  async function handleArchivoSeleccionado(e) {
+    const archivo = e.target.files[0];
+    if (!archivo) return;
+
+    setAnalizando(true);
+    setAvisoIA('');
+    setError('');
+    try {
+      const resultado = await analizarTicket(token, grupoId, archivo);
+      setImagenUrl(resultado.imagen_url);
+      if (resultado.monto_total != null) setMontoTotal(String(resultado.monto_total));
+      if (resultado.items?.length > 0) {
+        setItems(resultado.items.map((item) => ({ nombre_item: item.nombre_item, precio: String(item.precio) })));
+      }
+      if (resultado.avisos?.length > 0) setAvisoIA(resultado.avisos.join(' '));
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setAnalizando(false);
+      e.target.value = '';
+    }
   }
 
   async function handleSubmit(e) {
@@ -41,6 +67,7 @@ export default function FormularioNuevoGasto({ grupoId, miembros, onCreado }) {
         monto_total: Number(montoTotal),
         pagado_por: Number(pagadoPor),
         items: itemsValidos.length > 0 ? itemsValidos : undefined,
+        imagen_url: imagenUrl ?? undefined,
       });
       onCreado(gasto);
     } catch (err) {
@@ -52,6 +79,23 @@ export default function FormularioNuevoGasto({ grupoId, miembros, onCreado }) {
 
   return (
     <form className={styles.form} onSubmit={handleSubmit} noValidate>
+      <div className={styles.subidaTicket}>
+        <label className={styles.botonSubir}>
+          {analizando ? 'Leyendo el ticket…' : '📷 Escanear ticket con IA'}
+          <input
+            type="file"
+            accept="image/*"
+            onChange={handleArchivoSeleccionado}
+            disabled={analizando}
+            hidden
+          />
+        </label>
+        {imagenUrl && (
+          <img src={imagenUrl} alt="Foto del ticket" className={styles.previewImagen} />
+        )}
+        {avisoIA && <p className={styles.avisoIA}>{avisoIA}</p>}
+      </div>
+
       <Input
         label="Descripcion"
         placeholder="Cena del sabado"

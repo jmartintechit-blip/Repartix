@@ -8,6 +8,12 @@ export function crearGasto(token, grupoId, datos) {
   return apiFetch(`/grupos/${grupoId}/gastos`, { method: 'POST', token, body: datos });
 }
 
+export function analizarTicket(token, grupoId, archivo) {
+  const formData = new FormData();
+  formData.append('imagen', archivo);
+  return apiFetch(`/grupos/${grupoId}/gastos/analizar-ticket`, { method: 'POST', token, body: formData });
+}
+
 export function obtenerGasto(token, grupoId, gastoId) {
   return apiFetch(`/grupos/${grupoId}/gastos/${gastoId}`, { token });
 }

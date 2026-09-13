@@ -11,6 +11,7 @@ export const crearGastoSchema = z.object({
   monto_total: z.number().positive('El monto total debe ser mayor que 0'),
   pagado_por: z.number().int().positive().optional(),
   fecha: z.string().trim().min(1).optional(),
+  imagen_url: z.string().trim().url('URL de imagen invalida').optional(),
   items: z.array(itemSchema).max(200, 'Demasiados items en un solo gasto').optional(),
 });
 

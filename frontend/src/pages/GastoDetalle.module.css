@@ -34,6 +34,21 @@
   font-size: 0.9375rem;
 }
 
+.encabezadoInfo {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.miniaturaTicket {
+  width: 64px;
+  height: 64px;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--color-border);
+  object-fit: cover;
+  flex-shrink: 0;
+}
+
 .accionesItems {
   margin-bottom: var(--space-4);
 }

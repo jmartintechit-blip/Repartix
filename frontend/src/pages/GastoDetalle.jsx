@@ -118,11 +118,18 @@ export default function GastoDetalle() {
       </Link>
 
       <div className={styles.encabezado}>
-        <div>
-          <h1>{gasto.descripcion}</h1>
-          <p className={styles.meta}>
-            {formatearMoneda(gasto.monto_total)} · Pagado por {pagador?.nombre ?? '—'} · {formatearFecha(gasto.fecha)}
-          </p>
+        <div className={styles.encabezadoInfo}>
+          {gasto.imagen_url && (
+            <a href={gasto.imagen_url} target="_blank" rel="noreferrer">
+              <img src={gasto.imagen_url} alt="Foto del ticket" className={styles.miniaturaTicket} />
+            </a>
+          )}
+          <div>
+            <h1>{gasto.descripcion}</h1>
+            <p className={styles.meta}>
+              {formatearMoneda(gasto.monto_total)} · Pagado por {pagador?.nombre ?? '—'} · {formatearFecha(gasto.fecha)}
+            </p>
+          </div>
         </div>
         {esPagador && (
           <Button variant="danger" onClick={handleEliminar}>
