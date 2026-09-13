@@ -1,0 +1,50 @@
+.encabezado {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: var(--space-4);
+  margin-bottom: var(--space-8);
+}
+
+.acciones {
+  display: flex;
+  gap: var(--space-3);
+}
+
+.mensaje {
+  color: var(--color-ink-muted);
+}
+
+.mensajeError {
+  color: var(--color-danger);
+}
+
+.vacio {
+  text-align: center;
+  color: var(--color-ink-muted);
+}
+
+.lista {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: var(--space-4);
+}
+
+.tarjeta {
+  cursor: pointer;
+  transition:
+    box-shadow var(--transition-fast),
+    transform var(--transition-fast);
+}
+.tarjeta:hover {
+  box-shadow: var(--shadow-md);
+  transform: translateY(-2px);
+}
+
+.codigo {
+  font-family: var(--font-mono);
+  color: var(--color-ink-muted);
+  font-size: 0.875rem;
+  margin-top: var(--space-2);
+}

@@ -5,6 +5,7 @@ import RutaInvitado from './components/routing/RutaInvitado.jsx';
 import Login from './pages/Login.jsx';
 import Registro from './pages/Registro.jsx';
 import Dashboard from './pages/Dashboard.jsx';
+import GrupoDetalle from './pages/GrupoDetalle.jsx';
 
 export default function App() {
   return (
@@ -32,6 +33,14 @@ export default function App() {
             element={
               <RutaProtegida>
                 <Dashboard />
+              </RutaProtegida>
+            }
+          />
+          <Route
+            path="/grupos/:id"
+            element={
+              <RutaProtegida>
+                <GrupoDetalle />
               </RutaProtegida>
             }
           />
