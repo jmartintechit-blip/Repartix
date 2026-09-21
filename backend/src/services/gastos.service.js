@@ -1,105 +1,98 @@
 import { db } from '../db/connection.js';
+import { ahoraSql } from '../utils/fecha.js';
 
 export function obtenerGastoPorId(id) {
-  return db.prepare('SELECT * FROM gastos WHERE id = ?').get(id);
+  return db('gastos').where({ id }).first();
 }
 
 export function obtenerGastosDeGrupo(grupoId) {
-  return db.prepare('SELECT * FROM gastos WHERE grupo_id = ? ORDER BY fecha DESC, id DESC').all(grupoId);
+  return db('gastos').where({ grupo_id: grupoId }).orderBy([{ column: 'fecha', order: 'desc' }, { column: 'id', order: 'desc' }]);
 }
 
 export function obtenerItemPorId(id) {
-  return db.prepare('SELECT * FROM items_gasto WHERE id = ?').get(id);
+  return db('items_gasto').where({ id }).first();
 }
 
 export function obtenerItemsDeGasto(gastoId) {
-  return db.prepare('SELECT * FROM items_gasto WHERE gasto_id = ? ORDER BY id ASC').all(gastoId);
+  return db('items_gasto').where({ gasto_id: gastoId }).orderBy('id', 'asc');
 }
 
 export function obtenerAsignacionesDeItem(itemId) {
-  return db
-    .prepare(
-      `SELECT u.id, u.nombre, u.email
-       FROM usuarios u
-       JOIN item_asignacion ia ON ia.usuario_id = u.id
-       WHERE ia.item_id = ?
-       ORDER BY u.nombre ASC`
-    )
-    .all(itemId);
+  return db('usuarios as u')
+    .join('item_asignacion as ia', 'ia.usuario_id', 'u.id')
+    .where('ia.item_id', itemId)
+    .orderBy('u.nombre', 'asc')
+    .select('u.id', 'u.nombre', 'u.email');
 }
 
-export function obtenerItemConAsignados(itemId) {
-  const item = obtenerItemPorId(itemId);
+export async function obtenerItemConAsignados(itemId) {
+  const item = await obtenerItemPorId(itemId);
   if (!item) return null;
-  return { ...item, asignados: obtenerAsignacionesDeItem(itemId) };
+  return { ...item, asignados: await obtenerAsignacionesDeItem(itemId) };
 }
 
-export function obtenerGastoCompleto(gastoId) {
-  const gasto = obtenerGastoPorId(gastoId);
+export async function obtenerGastoCompleto(gastoId) {
+  const gasto = await obtenerGastoPorId(gastoId);
   if (!gasto) return null;
-  const items = obtenerItemsDeGasto(gastoId).map((item) => ({
-    ...item,
-    asignados: obtenerAsignacionesDeItem(item.id),
-  }));
+  const itemsBase = await obtenerItemsDeGasto(gastoId);
+  const items = await Promise.all(
+    itemsBase.map(async (item) => ({ ...item, asignados: await obtenerAsignacionesDeItem(item.id) }))
+  );
   return { ...gasto, items };
 }
 
-export function crearGasto({ grupoId, pagadoPor, descripcion, montoTotal, fecha, items, imagenUrl }) {
-  const transaccion = db.transaction(() => {
-    const { lastInsertRowid: gastoId } = db
-      .prepare(
-        `INSERT INTO gastos (grupo_id, pagado_por, descripcion, monto_total, imagen_url, fecha)
-         VALUES (@grupo_id, @pagado_por, @descripcion, @monto_total, @imagen_url, COALESCE(@fecha, datetime('now')))`
-      )
-      .run({
+export async function crearGasto({ grupoId, pagadoPor, descripcion, montoTotal, fecha, items, imagenUrl }) {
+  const gastoId = await db.transaction(async (trx) => {
+    const [{ id }] = await trx('gastos')
+      .insert({
         grupo_id: grupoId,
         pagado_por: pagadoPor,
         descripcion,
         monto_total: montoTotal,
         imagen_url: imagenUrl ?? null,
-        fecha: fecha ?? null,
-      });
+        fecha: fecha ?? ahoraSql(),
+      })
+      .returning('id');
 
     const itemsAInsertar = items && items.length > 0 ? items : [{ nombre_item: 'Total', precio: montoTotal, cantidad: 1 }];
-    const insertarItem = db.prepare('INSERT INTO items_gasto (gasto_id, nombre_item, precio, cantidad) VALUES (?, ?, ?, ?)');
 
     for (const item of itemsAInsertar) {
-      insertarItem.run(gastoId, item.nombre_item, item.precio, item.cantidad ?? 1);
+      await trx('items_gasto').insert({
+        gasto_id: id,
+        nombre_item: item.nombre_item,
+        precio: item.precio,
+        cantidad: item.cantidad ?? 1,
+      });
     }
 
-    return gastoId;
+    return id;
   });
 
-  return obtenerGastoCompleto(transaccion());
+  return obtenerGastoCompleto(gastoId);
 }
 
 export function eliminarGasto(gastoId) {
   // ON DELETE CASCADE se encarga de items_gasto e item_asignacion
-  db.prepare('DELETE FROM gastos WHERE id = ?').run(gastoId);
+  return db('gastos').where({ id: gastoId }).del();
 }
 
-export function asignarUsuariosAItem(itemId, usuarioIds) {
-  const transaccion = db.transaction(() => {
-    db.prepare('DELETE FROM item_asignacion WHERE item_id = ?').run(itemId);
-    const insertar = db.prepare('INSERT INTO item_asignacion (item_id, usuario_id) VALUES (?, ?)');
+export async function asignarUsuariosAItem(itemId, usuarioIds) {
+  await db.transaction(async (trx) => {
+    await trx('item_asignacion').where({ item_id: itemId }).del();
     for (const usuarioId of usuarioIds) {
-      insertar.run(itemId, usuarioId);
+      await trx('item_asignacion').insert({ item_id: itemId, usuario_id: usuarioId });
     }
   });
-  transaccion();
 }
 
-export function dividirPartesIguales(gastoId, usuarioIds) {
-  const items = obtenerItemsDeGasto(gastoId);
-  const transaccion = db.transaction(() => {
-    const borrar = db.prepare('DELETE FROM item_asignacion WHERE item_id = ?');
-    const insertar = db.prepare('INSERT INTO item_asignacion (item_id, usuario_id) VALUES (?, ?)');
+export async function dividirPartesIguales(gastoId, usuarioIds) {
+  const items = await obtenerItemsDeGasto(gastoId);
+  await db.transaction(async (trx) => {
     for (const item of items) {
-      borrar.run(item.id);
+      await trx('item_asignacion').where({ item_id: item.id }).del();
       for (const usuarioId of usuarioIds) {
-        insertar.run(item.id, usuarioId);
+        await trx('item_asignacion').insert({ item_id: item.id, usuario_id: usuarioId });
       }
     }
   });
-  transaccion();
 }

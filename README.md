@@ -8,7 +8,8 @@ Una IA de visión extrae los artículos y precios, cada persona marca qué consu
 [![Licencia: MIT](https://img.shields.io/badge/licencia-MIT-b9770e)](LICENSE)
 ![Node](https://img.shields.io/badge/node-%3E%3D20-1b6e64)
 ![React](https://img.shields.io/badge/frontend-React%20%2B%20Vite-e15b36)
-![Tests](https://img.shields.io/badge/tests-13%20passing-1b6e64)
+![Tests](https://img.shields.io/badge/tests-14%20passing-1b6e64)
+![DB](https://img.shields.io/badge/db-SQLite%20%7C%20Postgres-2e6da4)
 
 </div>
 
@@ -136,6 +137,33 @@ Sin estas credenciales, el botón "Escanear ticket con IA" muestra un aviso y el
 |---|---|
 | `GEMINI_API_KEY` | [Google AI Studio](https://aistudio.google.com/apikey) — gratis, sin tarjeta |
 | `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET` | [Cloudinary](https://cloudinary.com/users/register/free) — plan gratuito, están en el Dashboard tras registrarte |
+
+## Despliegue
+
+El backend habla con la base de datos a través de [Knex](https://knexjs.org/), no directamente con el driver de SQLite: el mismo código de `services/` funciona sin cambios contra SQLite o Postgres, según si la variable `DATABASE_URL` está definida.
+
+```
+DATABASE_URL vacía   → SQLite local (backend/data/repartix.sqlite)
+DATABASE_URL definida → Postgres (esa cadena de conexión)
+```
+
+Verificado con dos suites de tests: una contra SQLite real (la misma que corre en desarrollo) y otra contra un motor compatible con Postgres en memoria ([pg-mem](https://github.com/oguimbal/pg-mem), ya que este entorno no tenía Docker a mano para levantar un Postgres real) — ambas ejercitan el mismo escenario de gastos y balances con resultados idénticos. Aun así, conviene probar el registro/login nada más desplegar, como primera comprobación contra el Postgres real de producción.
+
+### Backend en Railway
+
+1. Crea un proyecto en Railway y conéctalo a este repo (carpeta `backend/`).
+2. Añade el plugin de **Postgres** de Railway — genera `DATABASE_URL` automáticamente, no hay que escribirla a mano.
+3. Configura el resto de variables de entorno del proyecto (mismas claves que `backend/.env.example`): `JWT_SECRET`, `FRONTEND_URL` (la URL pública que te dé Vercel), y opcionalmente `GEMINI_API_KEY`/`CLOUDINARY_*`.
+4. Comando de arranque: `npm start`. Las migraciones se aplican solas al arrancar (`migrate()` corre antes de levantar el servidor), igual que en local.
+
+### Frontend en Vercel
+
+1. Importa este repo en Vercel, con `frontend/` como carpeta raíz del proyecto.
+2. Variable de entorno: `VITE_API_URL` apuntando a la URL pública del backend en Railway (por ejemplo `https://tu-backend.up.railway.app/api`).
+
+### CORS
+
+En desarrollo, sin `FRONTEND_URL` definida, el backend admite peticiones de cualquier origen (igual que siempre). En producción, definir `FRONTEND_URL` con la URL de Vercel restringe el CORS a ese origen — evita que otra web cualquiera pueda llamar a tu API con la sesión de un usuario.
 
 ## Estructura
 

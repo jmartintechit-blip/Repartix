@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import './config/env.js';
 import express from 'express';
+import 'express-async-errors';
 import cors from 'cors';
 import multer from 'multer';
 import { migrate } from './db/migrate.js';
@@ -9,12 +10,19 @@ import gruposRoutes from './routes/grupos.routes.js';
 import gastosRoutes from './routes/gastos.routes.js';
 import liquidacionesRoutes from './routes/liquidaciones.routes.js';
 
-migrate();
+await migrate();
 
 const app = express();
 const PORT = process.env.PORT || 3001;
 
-app.use(cors());
+// Sin FRONTEND_URL (desarrollo local) se admite cualquier origen, igual que
+// antes. En produccion se define FRONTEND_URL y solo ese origen puede llamar
+// a la API.
+const origenesPermitidos = process.env.FRONTEND_URL
+  ? process.env.FRONTEND_URL.split(',').map((url) => url.trim())
+  : true;
+app.use(cors({ origin: origenesPermitidos }));
+
 app.use(express.json());
 
 app.get('/api/health', (req, res) => {

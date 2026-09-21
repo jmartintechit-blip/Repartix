@@ -1,4 +1,5 @@
 import { db } from '../db/connection.js';
+import { ahoraSql } from '../utils/fecha.js';
 
 // Sin 0/O/1/I/L para evitar confusiones al transcribir el codigo a mano
 const CODE_CHARS = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
@@ -13,64 +14,64 @@ function generarCodigo() {
   return codigo;
 }
 
+// SQLite (better-sqlite3) y Postgres (pg) reportan una violacion de UNIQUE
+// de forma distinta: SQLite con un mensaje de texto, Postgres con el codigo
+// de error estandar 23505. Hay que reconocer ambas para que el reintento de
+// codigo de invitacion funcione sea cual sea el motor.
+function esErrorDeDuplicado(err) {
+  return err.code === '23505' || err.message.includes('UNIQUE constraint failed');
+}
+
 export function obtenerGrupoPorId(id) {
-  return db.prepare('SELECT * FROM grupos WHERE id = ?').get(id);
+  return db('grupos').where({ id }).first();
 }
 
 export function obtenerGrupoPorCodigo(codigo) {
-  return db.prepare('SELECT * FROM grupos WHERE codigo_invitacion = ?').get(codigo);
+  return db('grupos').where({ codigo_invitacion: codigo }).first();
 }
 
-export function esMiembro(grupoId, usuarioId) {
-  return !!db
-    .prepare('SELECT 1 FROM usuario_grupo WHERE grupo_id = ? AND usuario_id = ?')
-    .get(grupoId, usuarioId);
+export async function esMiembro(grupoId, usuarioId) {
+  const fila = await db('usuario_grupo').where({ grupo_id: grupoId, usuario_id: usuarioId }).first();
+  return Boolean(fila);
 }
 
-export function crearGrupo({ nombre, creadorId }) {
+export async function crearGrupo({ nombre, creadorId }) {
   for (let intento = 0; intento < MAX_INTENTOS; intento++) {
     const codigo = generarCodigo();
     try {
-      const { lastInsertRowid } = db
-        .prepare('INSERT INTO grupos (nombre, codigo_invitacion) VALUES (?, ?)')
-        .run(nombre, codigo);
-      db.prepare('INSERT INTO usuario_grupo (usuario_id, grupo_id) VALUES (?, ?)').run(creadorId, lastInsertRowid);
-      return obtenerGrupoPorId(lastInsertRowid);
+      const [{ id: grupoId }] = await db('grupos')
+        .insert({ nombre, codigo_invitacion: codigo, fecha_creacion: ahoraSql() })
+        .returning('id');
+      await db('usuario_grupo').insert({ usuario_id: creadorId, grupo_id: grupoId, fecha_union: ahoraSql() });
+      return obtenerGrupoPorId(grupoId);
     } catch (err) {
-      if (err.message.includes('UNIQUE constraint failed: grupos.codigo_invitacion')) continue;
+      if (esErrorDeDuplicado(err)) continue;
       throw err;
     }
   }
   throw new Error('No se pudo generar un codigo de invitacion unico, intentalo de nuevo');
 }
 
-export function unirseAGrupo({ codigo, usuarioId }) {
-  const grupo = obtenerGrupoPorCodigo(codigo);
+export async function unirseAGrupo({ codigo, usuarioId }) {
+  const grupo = await obtenerGrupoPorCodigo(codigo);
   if (!grupo) return { error: 'no_encontrado' };
-  if (esMiembro(grupo.id, usuarioId)) return { yaEraMiembro: true, grupo };
-  db.prepare('INSERT INTO usuario_grupo (usuario_id, grupo_id) VALUES (?, ?)').run(usuarioId, grupo.id);
+  if (await esMiembro(grupo.id, usuarioId)) return { yaEraMiembro: true, grupo };
+  await db('usuario_grupo').insert({ usuario_id: usuarioId, grupo_id: grupo.id, fecha_union: ahoraSql() });
   return { grupo };
 }
 
 export function obtenerGruposDeUsuario(usuarioId) {
-  return db
-    .prepare(
-      `SELECT g.* FROM grupos g
-       JOIN usuario_grupo ug ON ug.grupo_id = g.id
-       WHERE ug.usuario_id = ?
-       ORDER BY g.fecha_creacion DESC`
-    )
-    .all(usuarioId);
+  return db('grupos as g')
+    .join('usuario_grupo as ug', 'ug.grupo_id', 'g.id')
+    .where('ug.usuario_id', usuarioId)
+    .orderBy('g.fecha_creacion', 'desc')
+    .select('g.*');
 }
 
 export function obtenerMiembros(grupoId) {
-  return db
-    .prepare(
-      `SELECT u.id, u.nombre, u.email, ug.fecha_union
-       FROM usuarios u
-       JOIN usuario_grupo ug ON ug.usuario_id = u.id
-       WHERE ug.grupo_id = ?
-       ORDER BY ug.fecha_union ASC`
-    )
-    .all(grupoId);
+  return db('usuarios as u')
+    .join('usuario_grupo as ug', 'ug.usuario_id', 'u.id')
+    .where('ug.grupo_id', grupoId)
+    .orderBy('ug.fecha_union', 'asc')
+    .select('u.id', 'u.nombre', 'u.email', 'ug.fecha_union');
 }

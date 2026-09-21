@@ -1,14 +1,23 @@
 import { vi, describe, it, expect, beforeAll, beforeEach } from 'vitest';
 
 // Los servicios importan `db` desde connection.js, que en produccion abre
-// siempre el archivo SQLite real. Para probar la logica real sin tocarla y
-// sin depender del archivo de desarrollo, sustituimos ese modulo por una
-// base de datos SQLite en memoria solo dentro de este archivo de test.
+// Postgres o SQLite segun DATABASE_URL. Para probar la logica real sin
+// tocarla y sin depender de ningun archivo/servidor externo, sustituimos ese
+// modulo por una instancia de Knex sobre SQLite en memoria, solo aqui.
 vi.mock('../db/connection.js', async () => {
-  const { default: Database } = await import('better-sqlite3');
-  const db = new Database(':memory:');
-  db.pragma('foreign_keys = ON');
-  return { db };
+  const { default: knexFactory } = await import('knex');
+  const db = knexFactory({
+    client: 'better-sqlite3',
+    connection: { filename: ':memory:' },
+    useNullAsDefault: true,
+    pool: {
+      afterCreate: (conn, done) => {
+        conn.pragma('foreign_keys = ON');
+        done(null, conn);
+      },
+    },
+  });
+  return { db, esPostgres: false };
 });
 
 import { db } from '../db/connection.js';
@@ -18,36 +27,34 @@ import * as gruposService from './grupos.service.js';
 import * as gastosService from './gastos.service.js';
 import * as liquidacionesService from './liquidaciones.service.js';
 
-migrate();
+await migrate();
 
-function limpiarGastosYLiquidaciones() {
-  db.exec(`
-    DELETE FROM liquidaciones;
-    DELETE FROM item_asignacion;
-    DELETE FROM items_gasto;
-    DELETE FROM gastos;
-  `);
+async function limpiarGastosYLiquidaciones() {
+  await db('liquidaciones').del();
+  await db('item_asignacion').del();
+  await db('items_gasto').del();
+  await db('gastos').del();
 }
 
 describe('calcularBalances: balance neto por persona', () => {
   let ana, bruno, carla, grupoId;
 
-  beforeAll(() => {
-    ana = authService.crearUsuario({ nombre: 'Ana', email: 'ana@test.com', password: 'password123' });
-    bruno = authService.crearUsuario({ nombre: 'Bruno', email: 'bruno@test.com', password: 'password123' });
-    carla = authService.crearUsuario({ nombre: 'Carla', email: 'carla@test.com', password: 'password123' });
+  beforeAll(async () => {
+    ana = await authService.crearUsuario({ nombre: 'Ana', email: 'ana@test.com', password: 'password123' });
+    bruno = await authService.crearUsuario({ nombre: 'Bruno', email: 'bruno@test.com', password: 'password123' });
+    carla = await authService.crearUsuario({ nombre: 'Carla', email: 'carla@test.com', password: 'password123' });
 
-    const grupo = gruposService.crearGrupo({ nombre: 'Finde en la playa', creadorId: ana.id });
+    const grupo = await gruposService.crearGrupo({ nombre: 'Finde en la playa', creadorId: ana.id });
     grupoId = grupo.id;
-    gruposService.unirseAGrupo({ codigo: grupo.codigo_invitacion, usuarioId: bruno.id });
-    gruposService.unirseAGrupo({ codigo: grupo.codigo_invitacion, usuarioId: carla.id });
+    await gruposService.unirseAGrupo({ codigo: grupo.codigo_invitacion, usuarioId: bruno.id });
+    await gruposService.unirseAGrupo({ codigo: grupo.codigo_invitacion, usuarioId: carla.id });
   });
 
   beforeEach(limpiarGastosYLiquidaciones);
 
-  it('reparte un gasto con propina prorrateada y el saldo de los 3 cuadra en cero', () => {
+  it('reparte un gasto con propina prorrateada y el saldo de los 3 cuadra en cero', async () => {
     // Ana paga 30: Pizza(12) para Ana+Bruno, Pasta(18) para los 3
-    const gasto1 = gastosService.crearGasto({
+    const gasto1 = await gastosService.crearGasto({
       grupoId,
       pagadoPor: ana.id,
       descripcion: 'Cena',
@@ -57,21 +64,21 @@ describe('calcularBalances: balance neto por persona', () => {
         { nombre_item: 'Pasta', precio: 18 },
       ],
     });
-    gastosService.asignarUsuariosAItem(gasto1.items[0].id, [ana.id, bruno.id]);
-    gastosService.asignarUsuariosAItem(gasto1.items[1].id, [ana.id, bruno.id, carla.id]);
+    await gastosService.asignarUsuariosAItem(gasto1.items[0].id, [ana.id, bruno.id]);
+    await gastosService.asignarUsuariosAItem(gasto1.items[1].id, [ana.id, bruno.id, carla.id]);
 
     // Bruno paga 45 (incluye propina; el item suma 40, factor 45/40 = 1.125),
     // partes iguales entre los 3 -> cada uno asume 15 de este gasto
-    const gasto2 = gastosService.crearGasto({
+    const gasto2 = await gastosService.crearGasto({
       grupoId,
       pagadoPor: bruno.id,
       descripcion: 'Bar',
       montoTotal: 45,
       items: [{ nombre_item: 'Rondas', precio: 40 }],
     });
-    gastosService.dividirPartesIguales(gasto2.id, [ana.id, bruno.id, carla.id]);
+    await gastosService.dividirPartesIguales(gasto2.id, [ana.id, bruno.id, carla.id]);
 
-    const balances = liquidacionesService.calcularBalances(grupoId);
+    const balances = await liquidacionesService.calcularBalances(grupoId);
     const porNombre = Object.fromEntries(balances.map((b) => [b.nombre, b.balance]));
 
     expect(porNombre.Ana).toBe(3);
@@ -80,16 +87,16 @@ describe('calcularBalances: balance neto por persona', () => {
     expect(balances.reduce((acc, b) => acc + b.balance, 0)).toBe(0);
   });
 
-  it('10 euros repartidos entre 3 (no divide exacto): el saldo sigue cuadrando en cero', () => {
-    const gasto = gastosService.crearGasto({
+  it('10 euros repartidos entre 3 (no divide exacto): el saldo sigue cuadrando en cero', async () => {
+    const gasto = await gastosService.crearGasto({
       grupoId,
       pagadoPor: ana.id,
       descripcion: 'Taxi',
       montoTotal: 10,
     });
-    gastosService.dividirPartesIguales(gasto.id, [ana.id, bruno.id, carla.id]);
+    await gastosService.dividirPartesIguales(gasto.id, [ana.id, bruno.id, carla.id]);
 
-    const balances = liquidacionesService.calcularBalances(grupoId);
+    const balances = await liquidacionesService.calcularBalances(grupoId);
     const porNombre = Object.fromEntries(balances.map((b) => [b.nombre, b.balance]));
 
     expect(porNombre.Ana).toBe(6.66);
@@ -98,8 +105,8 @@ describe('calcularBalances: balance neto por persona', () => {
     expect(balances.reduce((acc, b) => acc + b.balance, 0)).toBe(0);
   });
 
-  it('un item sin nadie asignado se reporta explicitamente en vez de calcular un balance a medias', () => {
-    gastosService.crearGasto({
+  it('un item sin nadie asignado se reporta explicitamente en vez de calcular un balance a medias', async () => {
+    await gastosService.crearGasto({
       grupoId,
       pagadoPor: ana.id,
       descripcion: 'Compra',
@@ -107,7 +114,7 @@ describe('calcularBalances: balance neto por persona', () => {
       items: [{ nombre_item: 'Varios', precio: 20 }],
     });
 
-    const pendientes = liquidacionesService.obtenerItemsSinAsignar(grupoId);
+    const pendientes = await liquidacionesService.obtenerItemsSinAsignar(grupoId);
     expect(pendientes).toHaveLength(1);
     expect(pendientes[0].nombre_item).toBe('Varios');
   });

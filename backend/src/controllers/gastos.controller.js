@@ -12,7 +12,15 @@ function sumaItems(items) {
   return items.reduce((acc, item) => acc + item.precio, 0);
 }
 
-export function crear(req, res) {
+// esMiembro ahora es async: `.every(cb)` con un callback async siempre daria
+// true (una Promise es un valor truthy), asi que hay que esperar todas las
+// comprobaciones antes de reducir a un unico booleano.
+async function todosSonMiembros(grupoId, usuarioIds) {
+  const resultados = await Promise.all(usuarioIds.map((id) => gruposService.esMiembro(grupoId, id)));
+  return resultados.every(Boolean);
+}
+
+export async function crear(req, res) {
   const parsed = crearGastoSchema.safeParse(req.body);
   if (!parsed.success) {
     return res.status(400).json({ error: 'Datos invalidos', detalles: parsed.error.flatten().fieldErrors });
@@ -24,11 +32,11 @@ export function crear(req, res) {
   }
 
   const pagadoPorId = pagado_por ?? req.usuario.id;
-  if (!gruposService.esMiembro(req.grupoId, pagadoPorId)) {
+  if (!(await gruposService.esMiembro(req.grupoId, pagadoPorId))) {
     return res.status(400).json({ error: 'El usuario que paga debe ser miembro del grupo' });
   }
 
-  const gasto = gastosService.crearGasto({
+  const gasto = await gastosService.crearGasto({
     grupoId: req.grupoId,
     pagadoPor: pagadoPorId,
     descripcion,
@@ -74,17 +82,17 @@ export async function analizarTicket(req, res) {
   res.json({ imagen_url: imagenUrl, monto_total: montoTotal, items, avisos });
 }
 
-export function listar(req, res) {
-  res.json({ gastos: gastosService.obtenerGastosDeGrupo(req.grupoId) });
+export async function listar(req, res) {
+  res.json({ gastos: await gastosService.obtenerGastosDeGrupo(req.grupoId) });
 }
 
-function obtenerGastoDelGrupoValidado(req, res) {
+async function obtenerGastoDelGrupoValidado(req, res) {
   const gastoId = Number(req.params.gastoId);
   if (!Number.isInteger(gastoId)) {
     res.status(400).json({ error: 'Id de gasto invalido' });
     return null;
   }
-  const gasto = gastosService.obtenerGastoPorId(gastoId);
+  const gasto = await gastosService.obtenerGastoPorId(gastoId);
   if (!gasto || gasto.grupo_id !== req.grupoId) {
     res.status(404).json({ error: 'Gasto no encontrado' });
     return null;
@@ -92,28 +100,28 @@ function obtenerGastoDelGrupoValidado(req, res) {
   return gasto;
 }
 
-export function detalle(req, res) {
-  const gasto = obtenerGastoDelGrupoValidado(req, res);
+export async function detalle(req, res) {
+  const gasto = await obtenerGastoDelGrupoValidado(req, res);
   if (!gasto) return;
-  res.json({ gasto: gastosService.obtenerGastoCompleto(gasto.id) });
+  res.json({ gasto: await gastosService.obtenerGastoCompleto(gasto.id) });
 }
 
-export function eliminar(req, res) {
-  const gasto = obtenerGastoDelGrupoValidado(req, res);
+export async function eliminar(req, res) {
+  const gasto = await obtenerGastoDelGrupoValidado(req, res);
   if (!gasto) return;
   if (gasto.pagado_por !== req.usuario.id) {
     return res.status(403).json({ error: 'Solo quien pago el gasto puede eliminarlo' });
   }
-  gastosService.eliminarGasto(gasto.id);
+  await gastosService.eliminarGasto(gasto.id);
   res.status(204).send();
 }
 
-export function asignarItem(req, res) {
-  const gasto = obtenerGastoDelGrupoValidado(req, res);
+export async function asignarItem(req, res) {
+  const gasto = await obtenerGastoDelGrupoValidado(req, res);
   if (!gasto) return;
 
   const itemId = Number(req.params.itemId);
-  const item = Number.isInteger(itemId) ? gastosService.obtenerItemPorId(itemId) : null;
+  const item = Number.isInteger(itemId) ? await gastosService.obtenerItemPorId(itemId) : null;
   if (!item || item.gasto_id !== gasto.id) {
     return res.status(404).json({ error: 'Item no encontrado' });
   }
@@ -124,16 +132,16 @@ export function asignarItem(req, res) {
   }
 
   const usuarioIds = [...new Set(parsed.data.usuario_ids)];
-  if (!usuarioIds.every((id) => gruposService.esMiembro(req.grupoId, id))) {
+  if (!(await todosSonMiembros(req.grupoId, usuarioIds))) {
     return res.status(400).json({ error: 'Todos los usuarios asignados deben ser miembros del grupo' });
   }
 
-  gastosService.asignarUsuariosAItem(item.id, usuarioIds);
-  res.json({ item: gastosService.obtenerItemConAsignados(item.id) });
+  await gastosService.asignarUsuariosAItem(item.id, usuarioIds);
+  res.json({ item: await gastosService.obtenerItemConAsignados(item.id) });
 }
 
-export function dividirPartesIguales(req, res) {
-  const gasto = obtenerGastoDelGrupoValidado(req, res);
+export async function dividirPartesIguales(req, res) {
+  const gasto = await obtenerGastoDelGrupoValidado(req, res);
   if (!gasto) return;
 
   const parsed = dividirPartesIgualesSchema.safeParse(req.body ?? {});
@@ -141,11 +149,13 @@ export function dividirPartesIguales(req, res) {
     return res.status(400).json({ error: 'Datos invalidos', detalles: parsed.error.flatten().fieldErrors });
   }
 
-  const usuarioIds = [...new Set(parsed.data.usuario_ids ?? gruposService.obtenerMiembros(req.grupoId).map((m) => m.id))];
-  if (!usuarioIds.every((id) => gruposService.esMiembro(req.grupoId, id))) {
+  const usuarioIds = [
+    ...new Set(parsed.data.usuario_ids ?? (await gruposService.obtenerMiembros(req.grupoId)).map((m) => m.id)),
+  ];
+  if (!(await todosSonMiembros(req.grupoId, usuarioIds))) {
     return res.status(400).json({ error: 'Todos los participantes deben ser miembros del grupo' });
   }
 
-  gastosService.dividirPartesIguales(gasto.id, usuarioIds);
-  res.json({ gasto: gastosService.obtenerGastoCompleto(gasto.id) });
+  await gastosService.dividirPartesIguales(gasto.id, usuarioIds);
+  res.json({ gasto: await gastosService.obtenerGastoCompleto(gasto.id) });
 }
