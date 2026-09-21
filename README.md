@@ -5,7 +5,7 @@
 **Divide gastos de grupo a partir de una foto del ticket.**
 Una IA de visión extrae los artículos y precios, cada persona marca qué consumió, y la app calcula automáticamente quién le debe a quién — con simplificación de deudas.
 
-[![Licencia: PolyForm Noncommercial 1.0.0](https://img.shields.io/badge/licencia-PolyForm%20Noncommercial%201.0.0-b9770e)](LICENSE)
+[![Licencia: MIT](https://img.shields.io/badge/licencia-MIT-b9770e)](LICENSE)
 ![Node](https://img.shields.io/badge/node-%3E%3D20-1b6e64)
 ![React](https://img.shields.io/badge/frontend-React%20%2B%20Vite-e15b36)
 
@@ -157,4 +157,4 @@ Cada carpeta (`backend/`, `frontend/`) tiene su propio `package.json` y se ejecu
 
 ## Licencia
 
-Distribuido bajo la [PolyForm Noncommercial License 1.0.0](LICENSE): puedes ver, ejecutar y modificar el código con fines personales, educativos o de evaluación, pero no se permite el uso comercial.
+Distribuido bajo la [licencia MIT](LICENSE): puedes usar, copiar, modificar y distribuir el código libremente, incluso con fines comerciales, siempre que se mantenga el aviso de copyright.
