@@ -8,6 +8,7 @@ Una IA de visión extrae los artículos y precios, cada persona marca qué consu
 [![Licencia: MIT](https://img.shields.io/badge/licencia-MIT-b9770e)](LICENSE)
 ![Node](https://img.shields.io/badge/node-%3E%3D20-1b6e64)
 ![React](https://img.shields.io/badge/frontend-React%20%2B%20Vite-e15b36)
+![Tests](https://img.shields.io/badge/tests-13%20passing-1b6e64)
 
 </div>
 
@@ -106,6 +107,12 @@ node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"
 ```bash
 npm run migrate   # crea la base de datos SQLite y sus tablas
 npm run dev        # http://localhost:3001
+```
+
+Para correr los tests de la lógica de cálculo de deudas (Vitest):
+
+```bash
+npm test
 ```
 
 ### 2. Frontend
