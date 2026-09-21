@@ -4,6 +4,9 @@ build/
 *.log
 .DS_Store
 
+# configuracion local de Claude Code (rutas de maquina, no aporta al repo)
+.claude/
+
 # env
 .env
 .env.local
