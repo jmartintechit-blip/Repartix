@@ -1,197 +1,188 @@
-<div align="center">
-
 # Repartix
 
-**Divide gastos de grupo a partir de una foto del ticket.**
-Una IA de visión extrae los artículos y precios, cada persona marca qué consumió, y la app calcula automáticamente quién le debe a quién — con simplificación de deudas.
-
-[![Licencia: MIT](https://img.shields.io/badge/licencia-MIT-b9770e)](LICENSE)
-![Node](https://img.shields.io/badge/node-%3E%3D20-1b6e64)
-![React](https://img.shields.io/badge/frontend-React%20%2B%20Vite-e15b36)
-![Tests](https://img.shields.io/badge/tests-14%20passing-1b6e64)
-![DB](https://img.shields.io/badge/db-SQLite%20%7C%20Postgres-2e6da4)
+Divide gastos de grupo a partir de una foto del ticket.
 
 🇬🇧 [Read this in English](README.md)
 
-</div>
+[![CI](https://github.com/jmartintechit-blip/Repartix/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/jmartintechit-blip/Repartix/actions/workflows/ci.yml)
+[![Licencia: MIT](https://img.shields.io/badge/licencia-MIT-blue.svg)](LICENSE)
+![Demo: sin desplegar](https://img.shields.io/badge/demo-sin%20desplegar-lightgrey.svg)
+![Node 22+](https://img.shields.io/badge/node-%3E%3D22-1b6e64.svg)
 
----
+Repartix permite a un grupo anotar quién pagó cada gasto, marcar qué artículos consumió cada persona, y calcula quién debe a quién con el menor número posible de pagos. Una IA de visión puede leer la foto de un ticket y rellenar los artículos y precios; sin ella, todo funciona introduciendo los datos a mano.
+
+![Balances y liquidaciones entre tres miembros](docs/images/05-liquidaciones.png)
+
+**Todavía no hay demo en línea.** Se ejecuta en local con tres comandos (ver [Inicio rápido](#inicio-rápido)). La interfaz está en español.
+
+> Repartix no es una app de pagos: nunca mueve dinero, solo te dice quién debe a quién. Es un proyecto de portfolio, no un servicio alojado. Ver [Limitaciones conocidas](#limitaciones-conocidas).
 
 ## Por qué existe
 
-Repartir la cuenta de un viaje o una cena en grupo casi siempre acaba en una hoja de cálculo improvisada o en un "ya me lo das luego" que nadie hace. Repartix automatiza las dos partes tediosas: **leer el ticket** (con IA de visión) y **calcular quién paga a quién** (con un algoritmo de simplificación de deudas), para que lo único que quede por hacer sea marcar cada artículo como propio.
+Repartir la cuenta de un viaje o una cena suele acabar en una hoja de cálculo improvisada o en un "ya te lo doy luego" que nunca llega. Repartix automatiza las dos partes tediosas: leer el ticket y calcular quién paga a quién. A las personas solo les queda marcar los artículos que fueron suyos.
 
-Es una pieza de portfolio técnico construida como una aplicación real, no una demo de un solo camino feliz: autenticación con JWT y contraseñas cifradas, base de datos relacional con transacciones, validación de entrada en cada endpoint, control de acceso por pertenencia a grupo, y los cálculos de dinero hechos en céntimos enteros para que no se pierda un solo céntimo por redondeo.
+## Qué hace
 
-## Capturas
+- Registro e inicio de sesión, con contraseñas cifradas y sesiones JWT.
+- Crear un grupo, o unirse a uno con un código de invitación de 6 caracteres.
+- Añadir un gasto con sus artículos. Opcionalmente, subir la foto del ticket y dejar que Gemini extraiga los artículos y el total, editables antes de guardar.
+- Cada miembro marca los artículos que consumió, o el gasto se reparte a partes iguales con un clic.
+- Balance neto por persona, con impuestos y propina prorrateados entre los artículos.
+- Simplificación de deudas: si A debe a B y B debe a C, A paga directamente a C.
+- Historial de gastos con la foto del ticket enlazada.
+- Marcar una liquidación como pagada. Solo pueden hacerlo las dos personas implicadas, y la app lo recuerda, así que un gasto posterior nunca pide un pago ya hecho.
 
-<table>
-<tr>
-<td width="50%">
+| Login                                         | Tus grupos                                       |
+| --------------------------------------------- | ------------------------------------------------ |
+| ![Pantalla de login](docs/images/01-login.png) | ![Lista de grupos](docs/images/02-dashboard.png) |
+| **Detalle de grupo**                          | **Asignar quién consumió qué**                   |
+| ![Grupo con miembros y gastos](docs/images/03-grupo.png) | ![Artículos asignados a cada persona](docs/images/04-gasto.png) |
 
-**Login**
-<img src="docs/screenshots/01-login.png" alt="Pantalla de login de Repartix" width="100%">
+Todos los nombres, importes y capturas son ficticios.
 
-</td>
-<td width="50%">
+## Cómo se calcula el reparto
 
-**Tus grupos**
-<img src="docs/screenshots/02-dashboard.png" alt="Dashboard con la lista de grupos" width="100%">
+1. En cada gasto, quien pagó se anota el importe completo a favor, y ese importe (con impuestos y propina prorrateados entre los artículos) se divide entre las personas asignadas a cada artículo.
+2. Todo se hace **en céntimos enteros**, con el método del resto mayor, así que lo cobrado y lo repartido siempre cuadran exactamente. Sin redondeos de `float`.
+3. Con el balance neto de cada persona, un algoritmo greedy empareja en cada paso al mayor deudor con el mayor acreedor.
+4. Las liquidaciones ya marcadas como pagadas se recuerdan.
 
-</td>
-</tr>
-<tr>
-<td width="50%">
+**Ejemplo resuelto** (el mismo escenario que comprueba la suite de tests y el de las capturas). Ana paga una cena de 30,00: una pizza de 12,00 compartida por Ana y Bruno, y una pasta de 18,00 compartida por los tres. Bruno paga una cuenta de bar de 45,00 repartida a partes iguales entre los tres.
 
-**Detalle de grupo**
-<img src="docs/screenshots/03-grupo.png" alt="Detalle de un grupo con miembros y gastos" width="100%">
+| Persona | Pagó  | Debe  | Balance neto |
+| ------- | ----: | ----: | -----------: |
+| Ana     | 30,00 | 27,00 |        +3,00 |
+| Bruno   | 45,00 | 27,00 |       +18,00 |
+| Carla   |  0,00 | 21,00 |       -21,00 |
 
-</td>
-<td width="50%">
+Carla debe 21,00 en total, saldados en dos pagos: 18,00 a Bruno y 3,00 a Ana.
 
-**Asignar quién consumió qué**
-<img src="docs/screenshots/04-gasto.png" alt="Detalle de un gasto con los items asignados a cada persona" width="100%">
+## Arquitectura
 
-</td>
-</tr>
-</table>
+```mermaid
+flowchart LR
+  B["Navegador<br/>SPA React"] -->|"REST, JWT"| A["API Express"]
+  A --> K["Knex"]
+  K -->|"DATABASE_URL vacía"| S[("SQLite<br/>fichero local")]
+  K -->|"DATABASE_URL definida"| P[("Postgres")]
+  A -.->|"opcional"| G["Gemini<br/>lectura de tickets"]
+  A -.->|"opcional"| C["Cloudinary<br/>fotos de tickets"]
+```
 
-**Balances y liquidaciones**
-<img src="docs/screenshots/05-liquidaciones.png" alt="Pantalla de balances y liquidaciones entre miembros" width="100%">
+Decisiones de diseño que importan:
 
-## Funcionalidades
+- **El dinero son céntimos enteros en todas partes.** El reparto y la simplificación de deudas nunca usan floats.
+- **Una capa de datos para dos bases de datos.** Los servicios hablan con Knex, así que el mismo código funciona con SQLite en desarrollo y con Postgres cuando se define `DATABASE_URL`. Las migraciones se aplican al arrancar.
+- **Capas.** Rutas, luego controladores (validan con Zod y responden), luego servicios (lógica de negocio y consultas).
+- **La parte de IA es opcional.** Sin claves de Gemini o Cloudinary, el botón de escanear muestra un aviso y el resto de la app no se ve afectado.
+- **Control de acceso por pertenencia.** Un middleware comprueba que quien llama pertenece al grupo antes de cualquier ruta de grupo.
 
-- Registro e inicio de sesión con contraseña cifrada (bcrypt) y sesión por JWT
-- Crear un grupo o unirse a uno existente con un código de invitación de 6 caracteres
-- Subir una foto del ticket → una IA de visión (Gemini) extrae los artículos y el importe total, editables antes de guardar
-- Cada miembro marca qué artículos consumió, o reparte un gasto completo a partes iguales con un clic
-- Motor de cálculo de deudas: balance neto por persona, con impuestos y propina prorrateados proporcionalmente
-- Simplificación de deudas: si A debe a B y B debe a C, se reduce a que A le pague directamente a C, minimizando el número de pagos
-- Historial de gastos del grupo, con la foto del ticket enlazada
-- Marcar una liquidación como pagada (solo lo pueden hacer las dos personas implicadas en esa deuda)
+## Tecnologías
 
-## Stack
+| Área         | Elección                                                      |
+| ------------ | ------------------------------------------------------------- |
+| Backend      | Node.js, Express 4                                            |
+| Base de datos | Knex 3 sobre SQLite (better-sqlite3) o Postgres (`pg`)       |
+| Auth         | JWT y bcrypt                                                  |
+| Validación   | Zod                                                           |
+| Frontend     | React 19, Vite, React Router, CSS Modules (sin librería de UI) |
+| IA de visión | Google Gemini (`gemini-2.5-flash`, salida estructurada)       |
+| Imágenes     | Cloudinary                                                    |
+| Tests        | Vitest, pg-mem (motor en memoria compatible con Postgres)     |
+| Calidad      | oxlint, GitHub Actions, Dependabot                            |
 
-| Capa | Tecnología | Por qué |
-|---|---|---|
-| Backend | Node.js + Express | API REST sencilla, sin sobre-ingeniería para el tamaño del proyecto |
-| Base de datos | SQLite (better-sqlite3) → Postgres en producción | Cero configuración en desarrollo, migraciones con `ALTER TABLE` para no perder datos |
-| Auth | JWT + bcrypt | Igual patrón que usaría en un backend en producción |
-| Validación | Zod | Esquemas explícitos en cada endpoint, mensajes de error consistentes |
-| Frontend | React + Vite | Sin frameworks de estilos: sistema de diseño propio con CSS Modules |
-| IA de visión | Google Gemini (`gemini-2.5-flash`) | Extracción estructurada (`responseSchema`) de ítems y precios desde la imagen |
-| Imágenes | Cloudinary | Almacenamiento persistente entre despliegues (no depende del disco del servidor) |
+## Inicio rápido
 
-## Cómo calcula quién debe a quién
-
-1. **Por cada gasto**, quien pagó se anota el importe completo a favor, y ese mismo importe (con impuestos o propina ya prorrateados proporcionalmente entre los artículos) se reparte entre las personas asignadas a cada artículo.
-2. Todo el reparto se hace **en céntimos enteros** con el método del resto mayor, para que la suma de lo cobrado y lo repartido cuadre siempre exacta — sin fugas de un céntimo por errores de redondeo con `float`.
-3. Con el balance neto de cada persona, un **algoritmo greedy** empareja en cada paso al mayor deudor con el mayor acreedor, minimizando cuántas transferencias hacen falta para saldar todas las deudas del grupo.
-4. Las liquidaciones ya marcadas como pagadas se recuerdan: si se añade un gasto nuevo, no se vuelve a pedir un pago que ya se hizo.
-
-## Puesta en marcha
-
-Requiere Node.js 20 o superior.
-
-### 1. Backend
+Necesitas Node 22 o superior (ver [`.nvmrc`](.nvmrc)). No hace falta ninguna cuenta ni clave de API.
 
 ```bash
-cd backend
-npm install
-cp .env.example .env
+cd backend && npm ci && cp .env.example .env   # luego define JWT_SECRET en .env
+npm run dev                                    # API en :3001, crea el fichero SQLite y las tablas
+cd ../frontend && npm ci && cp .env.example .env && npm run dev   # app en :5173 (segunda terminal)
 ```
 
-Edita `backend/.env` y pon un valor aleatorio largo en `JWT_SECRET`:
+Genera un valor para `JWT_SECRET` con `node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"`.
 
-```bash
-node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"
+### Opcional: escaneo de tickets
+
+Sin estas variables, el botón de escanear ticket muestra un aviso y los gastos se introducen a mano.
+
+| Variable                                                               | Dónde conseguirla                                                    |
+| ---------------------------------------------------------------------- | -------------------------------------------------------------------- |
+| `GEMINI_API_KEY`                                                       | [Google AI Studio](https://aistudio.google.com/apikey)               |
+| `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET` | [Cloudinary](https://cloudinary.com/users/register/free), Dashboard  |
+
+### Despliegue (documentado, no ejecutado)
+
+La configuración objetivo es el backend en Railway con su plugin de Postgres y el frontend en Vercel. Nada de esto se ha desplegado todavía, así que toma estos pasos como un plan.
+
+1. Backend: conecta la carpeta `backend/`, añade el plugin de Postgres (aporta `DATABASE_URL`), define `JWT_SECRET` y `FRONTEND_URL`, arranca con `npm start`.
+2. Frontend: usa `frontend/` como directorio raíz y define `VITE_API_URL` con la URL pública del backend terminada en `/api`.
+3. `FRONTEND_URL` restringe el CORS a ese origen. Vacía (desarrollo), la API acepta cualquier origen.
+
+## Calidad y seguridad
+
+**Tests.** 14 tests de Vitest en 3 ficheros pasan en este commit (`cd backend && npm test`): 13 cubren la lógica de dinero y deudas contra SQLite en memoria, y 1 repite el mismo escenario de gastos contra pg-mem para comprobar que las consultas de Knex son válidas en el dialecto de Postgres.
+
+**CI** ([`ci.yml`](.github/workflows/ci.yml)) se ejecuta en cada push y pull request: tests del backend, y después lint y build de producción del frontend. El lint muestra algunos avisos de hooks de React y ningún error.
+
+**Medidas de seguridad que realmente están en el código:**
+
+- Contraseñas cifradas con bcrypt (10 rondas). Los JWT caducan a los 7 días. El servidor se niega a arrancar sin `JWT_SECRET`.
+- El registro y el login tienen límite de peticiones (20 cada 15 minutos por cliente).
+- Cada endpoint valida su entrada con Zod, y las rutas de grupo comprueban la pertenencia.
+- Las subidas de tickets están limitadas a 8 MB y a JPEG, PNG, HEIC y WEBP.
+- Los secretos viven en variables de entorno. Los ficheros `.env` están en `.gitignore` y solo se versionan los `.env.example`.
+
+Para reportar vulnerabilidades, ver [SECURITY.md](SECURITY.md). Las alertas de Dependabot, el escaneo de secretos y la protección en push están activados en el repositorio.
+
+## Limitaciones conocidas
+
+- **Sin demo en línea.** La configuración de Railway y Vercel está documentada pero no se ha desplegado.
+- **Postgres real sin probar.** El camino de Postgres solo se comprobó contra pg-mem, porque no había Docker disponible. Prueba el registro y el login justo después de un primer despliegue.
+- **El escaneo de tickets no tiene tests automáticos.** Las llamadas a Gemini y Cloudinary no se han ejercitado contra los servicios reales en CI.
+- **La cobertura de tests es estrecha.** No hay tests del frontend, ni de las rutas HTTP, la autenticación o el control de acceso.
+- **Token en el navegador.** El JWT se guarda en `localStorage`, así que un fallo XSS lo expondría.
+- **Sin cabeceras de seguridad y con límite de peticiones parcial.** No hay `helmet`, y solo las rutas de autenticación tienen límite de peticiones.
+- **La comprobación de subidas confía en el tipo declarado.** Los ficheros se filtran por el tipo MIME que envía el cliente, no por su contenido.
+- **Sin recuperación de contraseña ni verificación de email.**
+- **Solo en español.** La interfaz está en español y los identificadores y comentarios del código también lo están en su mayoría. Los importes se muestran en euros.
+
+## Hoja de ruta
+
+Ideas, no promesas:
+
+- Desplegar una demo pública y probar contra un Postgres real.
+- Tests de rutas para la autenticación y el control de acceso a grupos.
+- Cabeceras de seguridad y sesión con cookie en lugar de `localStorage`.
+- Tests del frontend.
+- Comprobar el contenido de las subidas, no solo el tipo declarado.
+- Interfaz en inglés.
+
+## Desarrollado con asistencia de IA
+
+La mayor parte del código se escribió con Claude Code, trabajando en pasos pequeños con el autor, que ejecutó la app y los tests. Si lo revisas, júzgalo por los tests y por el código, no por quién lo tecleó.
+
+## Estructura del proyecto
+
+```text
+backend/src/
+  routes/        endpoints Express, agrupados por recurso
+  controllers/   validan la entrada y dan forma a la respuesta
+  services/      lógica de negocio y acceso a datos
+  middleware/    auth, pertenencia a grupo, subida de imágenes
+  validators/    esquemas Zod
+  db/            conexión Knex (SQLite o Postgres) y migraciones
+frontend/src/
+  pages/         una pantalla por ruta
+  components/    sistema de diseño (ui), layout y guardas de ruta
+  api/           un módulo por recurso sobre un cliente fetch común
+  context/       estado global de autenticación
+docs/images/     capturas y la imagen de vista previa social
 ```
 
-```bash
-npm run migrate   # crea la base de datos SQLite y sus tablas
-npm run dev        # http://localhost:3001
-```
-
-Para correr los tests de la lógica de cálculo de deudas (Vitest):
-
-```bash
-npm test
-```
-
-### 2. Frontend
-
-En otra terminal:
-
-```bash
-cd frontend
-npm install
-cp .env.example .env
-npm run dev         # http://localhost:5173
-```
-
-Con esto la aplicación funciona por completo: registro, login, grupos, gastos y liquidaciones. La única pieza que requiere configuración adicional es el escaneo de tickets con IA (opcional, ver abajo) — sin ella, todo lo demás funciona igual y los gastos se introducen a mano.
-
-### 3. Activar el escaneo de tickets con IA (opcional)
-
-Sin estas credenciales, el botón "Escanear ticket con IA" muestra un aviso y el formulario se rellena a mano con normalidad — el resto de la app no se ve afectado.
-
-| Variable | Dónde conseguirla |
-|---|---|
-| `GEMINI_API_KEY` | [Google AI Studio](https://aistudio.google.com/apikey) — gratis, sin tarjeta |
-| `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET` | [Cloudinary](https://cloudinary.com/users/register/free) — plan gratuito, están en el Dashboard tras registrarte |
-
-## Despliegue
-
-El backend habla con la base de datos a través de [Knex](https://knexjs.org/), no directamente con el driver de SQLite: el mismo código de `services/` funciona sin cambios contra SQLite o Postgres, según si la variable `DATABASE_URL` está definida.
-
-```
-DATABASE_URL vacía   → SQLite local (backend/data/repartix.sqlite)
-DATABASE_URL definida → Postgres (esa cadena de conexión)
-```
-
-Verificado con dos suites de tests: una contra SQLite real (la misma que corre en desarrollo) y otra contra un motor compatible con Postgres en memoria ([pg-mem](https://github.com/oguimbal/pg-mem), ya que este entorno no tenía Docker a mano para levantar un Postgres real) — ambas ejercitan el mismo escenario de gastos y balances con resultados idénticos. Aun así, conviene probar el registro/login nada más desplegar, como primera comprobación contra el Postgres real de producción.
-
-### Backend en Railway
-
-1. Crea un proyecto en Railway y conéctalo a este repo (carpeta `backend/`).
-2. Añade el plugin de **Postgres** de Railway — genera `DATABASE_URL` automáticamente, no hay que escribirla a mano.
-3. Configura el resto de variables de entorno del proyecto (mismas claves que `backend/.env.example`): `JWT_SECRET`, `FRONTEND_URL` (la URL pública que te dé Vercel), y opcionalmente `GEMINI_API_KEY`/`CLOUDINARY_*`.
-4. Comando de arranque: `npm start`. Las migraciones se aplican solas al arrancar (`migrate()` corre antes de levantar el servidor), igual que en local.
-
-### Frontend en Vercel
-
-1. Importa este repo en Vercel, con `frontend/` como carpeta raíz del proyecto.
-2. Variable de entorno: `VITE_API_URL` apuntando a la URL pública del backend en Railway (por ejemplo `https://tu-backend.up.railway.app/api`).
-
-### CORS
-
-En desarrollo, sin `FRONTEND_URL` definida, el backend admite peticiones de cualquier origen (igual que siempre). En producción, definir `FRONTEND_URL` con la URL de Vercel restringe el CORS a ese origen — evita que otra web cualquiera pueda llamar a tu API con la sesión de un usuario.
-
-## Estructura
-
-```
-backend/
-  src/
-    routes/          endpoints Express, agrupados por recurso
-    controllers/     validan la entrada y orquestan la respuesta
-    services/        logica de negocio y acceso a datos (SQL)
-    middleware/      auth, pertenencia a grupo, subida de imagenes
-    validators/      esquemas Zod por endpoint
-    db/              conexion Knex (SQLite/Postgres) y migraciones
-frontend/
-  src/
-    pages/           una pantalla por ruta
-    components/
-      ui/            Button, Input, Card, Modal, Avatar... (sistema de diseno)
-      layout/        AuthLayout, AppShell
-      routing/       guardas de ruta (protegida / solo invitados)
-    api/             un modulo por recurso, todos sobre un cliente fetch comun
-    context/         estado de autenticacion global
-docs/screenshots/    capturas usadas en este README
-```
-
-Cada carpeta (`backend/`, `frontend/`) tiene su propio `package.json` y se ejecuta de forma independiente.
+`backend/` y `frontend/` tienen cada uno su propio `package.json` y se ejecutan de forma independiente.
 
 ## Licencia
 
-Distribuido bajo la [licencia MIT](LICENSE): puedes usar, copiar, modificar y distribuir el código libremente, incluso con fines comerciales, siempre que se mantenga el aviso de copyright.
+[MIT](LICENSE)

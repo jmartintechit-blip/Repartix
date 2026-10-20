@@ -1,197 +1,188 @@
-<div align="center">
-
 # Repartix
 
-**Split group expenses from a photo of the receipt.**
-A vision AI extracts the items and prices, each person marks what they had, and the app automatically works out who owes whom — with debt simplification.
-
-[![License: MIT](https://img.shields.io/badge/license-MIT-b9770e)](LICENSE)
-![Node](https://img.shields.io/badge/node-%3E%3D20-1b6e64)
-![React](https://img.shields.io/badge/frontend-React%20%2B%20Vite-e15b36)
-![Tests](https://img.shields.io/badge/tests-14%20passing-1b6e64)
-![DB](https://img.shields.io/badge/db-SQLite%20%7C%20Postgres-2e6da4)
+Split group expenses from a photo of the receipt.
 
 🇪🇸 [Leer esto en español](README.es.md)
 
-</div>
+[![CI](https://github.com/jmartintechit-blip/Repartix/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/jmartintechit-blip/Repartix/actions/workflows/ci.yml)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
+![Demo: not deployed](https://img.shields.io/badge/demo-not%20deployed-lightgrey.svg)
+![Node 22+](https://img.shields.io/badge/node-%3E%3D22-1b6e64.svg)
 
----
+Repartix lets a group record who paid for what, mark which items each person had, and works out who owes whom with the fewest possible payments. A vision AI can read a receipt photo and pre-fill the items and prices; without it, everything works with manual entry.
 
-## Why it exists
+![Balances and settlements between three members](docs/images/05-liquidaciones.png)
 
-Splitting the bill after a group trip or dinner almost always ends up as an improvised spreadsheet, or an "I'll pay you back later" that never happens. Repartix automates the two tedious parts: **reading the receipt** (with a vision AI) and **working out who pays whom** (with a debt-simplification algorithm), so the only thing left to do is tick off which items were yours.
+**There is no live demo yet.** Run it locally in three commands (see [Quickstart](#quickstart)). The interface is in Spanish.
 
-This is a technical portfolio piece built as a real application, not a happy-path-only demo: JWT auth with hashed passwords, a relational database with transactions, input validation on every endpoint, group-membership access control, and money math done in whole cents so a single cent never gets lost to rounding.
+> Repartix is not a payment app: it never moves money, it only tells you who owes whom. It is a portfolio project, not a hosted service. See [Known limitations](#known-limitations).
 
-## Screenshots
+## Why this exists
 
-<table>
-<tr>
-<td width="50%">
+Splitting the bill after a trip or a dinner usually ends in an improvised spreadsheet, or an "I'll pay you back later" that never happens. Repartix automates the two tedious parts: reading the receipt, and working out who pays whom. What is left for people is ticking the items that were theirs.
 
-**Login**
-<img src="docs/screenshots/01-login.png" alt="Repartix login screen" width="100%">
+## What it does
 
-</td>
-<td width="50%">
+- Sign up and log in, with hashed passwords and JWT sessions.
+- Create a group, or join one with a 6-character invite code.
+- Add an expense with its line items. Optionally upload a receipt photo and let Gemini extract the items and total, editable before saving.
+- Each member marks the items they had, or an expense is split equally in one click.
+- Net balance per person, with tax and tip prorated across the items.
+- Debt simplification: if A owes B and B owes C, A pays C directly.
+- Expense history with the receipt photo linked.
+- Mark a settlement as paid. Only the two people involved can do it, and the app remembers it, so a later expense never asks for a payment already made.
 
-**Your groups**
-<img src="docs/screenshots/02-dashboard.png" alt="Dashboard with the list of groups" width="100%">
+| Login                                         | Your groups                                      |
+| --------------------------------------------- | ------------------------------------------------ |
+| ![Login screen](docs/images/01-login.png)     | ![List of groups](docs/images/02-dashboard.png)  |
+| **Group detail**                              | **Assigning who had what**                       |
+| ![Group with members and expenses](docs/images/03-grupo.png) | ![Items assigned to each person](docs/images/04-gasto.png) |
 
-</td>
-</tr>
-<tr>
-<td width="50%">
+All names, amounts and screenshots are fictitious.
 
-**Group detail**
-<img src="docs/screenshots/03-grupo.png" alt="Group detail with members and expenses" width="100%">
+## How the split is calculated
 
-</td>
-<td width="50%">
+1. For each expense, the payer is credited the full amount, and that amount (with tax and tip prorated across the items) is divided among the people assigned to each item.
+2. All of it happens **in whole cents**, using the largest-remainder method, so what is collected and what is distributed always add up exactly. No `float` rounding.
+3. Given every net balance, a greedy algorithm pairs the biggest debtor with the biggest creditor at each step.
+4. Settlements already marked as paid are remembered.
 
-**Assigning who had what**
-<img src="docs/screenshots/04-gasto.png" alt="Expense detail with items assigned to each person" width="100%">
+**Worked example** (the same scenario the test suite checks, and the one in the screenshots). Ana pays a 30.00 dinner: a 12.00 pizza shared by Ana and Bruno, and an 18.00 pasta shared by all three. Bruno pays a 45.00 bar tab split equally among the three.
 
-</td>
-</tr>
-</table>
+| Person | Paid  | Owes  | Net balance |
+| ------ | ----: | ----: | ----------: |
+| Ana    | 30.00 | 27.00 |       +3.00 |
+| Bruno  | 45.00 | 27.00 |      +18.00 |
+| Carla  |  0.00 | 21.00 |      -21.00 |
 
-**Balances and settlements**
-<img src="docs/screenshots/05-liquidaciones.png" alt="Balances and settlements screen between members" width="100%">
+Carla owes 21.00 in total, settled as two payments: 18.00 to Bruno and 3.00 to Ana.
 
-## Features
+## Architecture
 
-- Sign up and log in with hashed passwords (bcrypt) and JWT sessions
-- Create a group or join an existing one with a 6-character invite code
-- Upload a photo of the receipt → a vision AI (Gemini) extracts the items and total, editable before saving
-- Each member marks which items they had, or splits a whole expense equally with one click
-- Debt engine: net balance per person, with tax and tip prorated proportionally
-- Debt simplification: if A owes B and B owes C, it collapses to A paying C directly, minimizing the number of payments
-- Group expense history, with the receipt photo linked
-- Mark a settlement as paid (only the two people involved in that debt can do it)
+```mermaid
+flowchart LR
+  B["Browser<br/>React SPA"] -->|"REST, JWT"| A["Express API"]
+  A --> K["Knex"]
+  K -->|"DATABASE_URL empty"| S[("SQLite<br/>local file")]
+  K -->|"DATABASE_URL set"| P[("Postgres")]
+  A -.->|"optional"| G["Gemini<br/>receipt reading"]
+  A -.->|"optional"| C["Cloudinary<br/>receipt photos"]
+```
 
-## Stack
+Design decisions that matter:
 
-| Layer | Technology | Why |
-|---|---|---|
-| Backend | Node.js + Express | A plain REST API, no over-engineering for a project this size |
-| Database | SQLite (better-sqlite3) → Postgres in production | Zero setup in development, migrations wrapped in `ALTER TABLE` so data is never lost |
-| Auth | JWT + bcrypt | The same pattern I'd use in a production backend |
-| Validation | Zod | Explicit schemas on every endpoint, consistent error messages |
-| Frontend | React + Vite | No styling framework — a hand-built design system with CSS Modules |
-| Vision AI | Google Gemini (`gemini-2.5-flash`) | Structured extraction (`responseSchema`) of items and prices from the image |
-| Images | Cloudinary | Persists across deploys — doesn't depend on the server's own disk |
+- **Money is integer cents everywhere.** The split and the debt simplification never touch floats.
+- **One data layer for two databases.** Services talk to Knex, so the same code runs on SQLite in development and on Postgres when `DATABASE_URL` is set. Migrations run at startup.
+- **Layers.** Routes, then controllers (validate with Zod and answer), then services (business logic and queries).
+- **The AI part is optional.** Without Gemini or Cloudinary keys the scan button shows a notice and the rest of the app is unaffected.
+- **Access control by membership.** A middleware checks that the caller belongs to the group before any group route.
 
-## How it works out who owes whom
+## Tech stack
 
-1. **For every expense**, whoever paid is credited the full amount, and that same amount (with tax/tip already prorated proportionally across the items) is split among the people assigned to each item.
-2. All of the splitting happens **in whole cents** using the largest-remainder method, so what's collected and what's distributed always add up exactly — no cent ever leaks to `float` rounding errors.
-3. Given everyone's net balance, a **greedy algorithm** pairs the biggest debtor with the biggest creditor at each step, minimizing how many transfers are needed to settle the whole group.
-4. Settlements already marked as paid are remembered: adding a new expense later never asks someone to pay something they already paid.
+| Area       | Choice                                                    |
+| ---------- | --------------------------------------------------------- |
+| Backend    | Node.js, Express 4                                        |
+| Database   | Knex 3 over SQLite (better-sqlite3) or Postgres (`pg`)    |
+| Auth       | JWT and bcrypt                                            |
+| Validation | Zod                                                       |
+| Frontend   | React 19, Vite, React Router, CSS Modules (no UI library) |
+| Vision AI  | Google Gemini (`gemini-2.5-flash`, structured output)     |
+| Images     | Cloudinary                                                |
+| Tests      | Vitest, pg-mem (in-memory Postgres-compatible engine)     |
+| Quality    | oxlint, GitHub Actions, Dependabot                        |
 
-## Getting started
+## Quickstart
 
-Requires Node.js 20 or later.
-
-### 1. Backend
+You need Node 22 or newer (see [`.nvmrc`](.nvmrc)). No account or API key is required.
 
 ```bash
-cd backend
-npm install
-cp .env.example .env
+cd backend && npm ci && cp .env.example .env   # then set JWT_SECRET in .env
+npm run dev                                    # API on :3001, creates the SQLite file and tables
+cd ../frontend && npm ci && cp .env.example .env && npm run dev   # app on :5173 (second terminal)
 ```
 
-Edit `backend/.env` and set a long random value for `JWT_SECRET`:
+Generate a value for `JWT_SECRET` with `node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"`.
 
-```bash
-node -e "console.log(require('crypto').randomBytes(48).toString('hex'))"
-```
+### Optional: receipt scanning
 
-```bash
-npm run migrate   # creates the SQLite database and its tables
-npm run dev        # http://localhost:3001
-```
+Without these variables the "scan receipt" button shows a notice and expenses are entered by hand.
 
-To run the debt-calculation logic tests (Vitest):
+| Variable                                                              | Where to get it                                                       |
+| --------------------------------------------------------------------- | --------------------------------------------------------------------- |
+| `GEMINI_API_KEY`                                                      | [Google AI Studio](https://aistudio.google.com/apikey)                |
+| `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET` | [Cloudinary](https://cloudinary.com/users/register/free), Dashboard   |
 
-```bash
-npm test
-```
+### Deploying (documented, not exercised)
 
-### 2. Frontend
+The target setup is the backend on Railway with its Postgres plugin and the frontend on Vercel. None of it has been deployed yet, so treat these steps as a plan.
 
-In another terminal:
+1. Backend: connect the `backend/` folder, add the Postgres plugin (it provides `DATABASE_URL`), set `JWT_SECRET` and `FRONTEND_URL`, start with `npm start`.
+2. Frontend: use `frontend/` as the root directory and set `VITE_API_URL` to the backend's public URL ending in `/api`.
+3. `FRONTEND_URL` restricts CORS to that origin. Left empty (development), the API accepts any origin.
 
-```bash
-cd frontend
-npm install
-cp .env.example .env
-npm run dev         # http://localhost:5173
-```
+## Quality and security
 
-At this point the app works end to end: sign up, log in, groups, expenses and settlements. The only piece that needs extra setup is AI receipt scanning (optional, see below) — without it, everything else works the same and expenses are entered by hand.
+**Tests.** 14 Vitest tests in 3 files pass on this commit (`cd backend && npm test`): 13 cover the money and debt logic against in-memory SQLite, and 1 replays the same expense scenario against pg-mem to check that the Knex queries are valid for the Postgres dialect.
 
-### 3. Turning on AI receipt scanning (optional)
+**CI** ([`ci.yml`](.github/workflows/ci.yml)) runs on every push and pull request: backend tests, then frontend lint and production build. The lint step reports some React hooks warnings and no errors.
 
-Without these credentials, the "Scan receipt with AI" button shows a notice and the form is filled in by hand as usual — nothing else in the app is affected.
+**Security measures actually in the code:**
 
-| Variable | Where to get it |
-|---|---|
-| `GEMINI_API_KEY` | [Google AI Studio](https://aistudio.google.com/apikey) — free, no card required |
-| `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET` | [Cloudinary](https://cloudinary.com/users/register/free) — free plan, found on the Dashboard once you sign up |
+- Passwords hashed with bcrypt (10 rounds). JWTs expire after 7 days. The server refuses to start without `JWT_SECRET`.
+- Login and sign-up are rate limited (20 requests per 15 minutes per client).
+- Every endpoint validates its input with Zod, and group routes check membership.
+- Receipt uploads are capped at 8 MB and limited to JPEG, PNG, HEIC and WEBP.
+- Secrets live in environment variables. `.env` files are git-ignored and only `.env.example` files are committed.
 
-## Deployment
+Vulnerability reports: see [SECURITY.md](SECURITY.md). Dependabot alerts, secret scanning and push protection are enabled on the repository.
 
-The backend talks to the database through [Knex](https://knexjs.org/) instead of the SQLite driver directly: the same `services/` code works unchanged against SQLite or Postgres, depending on whether `DATABASE_URL` is set.
+## Known limitations
 
-```
-DATABASE_URL empty → local SQLite (backend/data/repartix.sqlite)
-DATABASE_URL set   → Postgres (that connection string)
-```
+- **No live demo.** The Railway and Vercel setup is documented but has not been deployed.
+- **Real Postgres is untested.** The Postgres path was only checked against pg-mem, because no Docker was available. Smoke-test sign-up and login right after a first deploy.
+- **Receipt scanning is not covered by automated tests.** The Gemini and Cloudinary calls have not been exercised against the live services in CI.
+- **Test coverage is narrow.** There are no frontend tests, and no tests for the HTTP routes, authentication or access control.
+- **Browser-side token.** The JWT is kept in `localStorage`, so an XSS bug would expose it.
+- **No security headers and limited rate limiting.** There is no `helmet`, and only the auth routes are rate limited.
+- **Upload check trusts the declared type.** Uploads are filtered by the MIME type the client sends, not by file content.
+- **No password recovery or email verification.**
+- **Spanish only.** The interface is in Spanish and the code identifiers and comments are mostly Spanish too. Amounts are shown in euros.
 
-Verified with two test suites: one against real SQLite (the same one used in development) and another against an in-memory Postgres-compatible engine ([pg-mem](https://github.com/oguimbal/pg-mem), since this environment had no Docker available to run real Postgres) — both exercise the same expense/balance scenario with identical results. Even so, it's worth smoke-testing sign up/login right after deploying, as a first check against the real production Postgres.
+## Roadmap
 
-### Backend on Railway
+Ideas, not promises:
 
-1. Create a Railway project and connect it to this repo (`backend/` folder).
-2. Add Railway's **Postgres** plugin — it generates `DATABASE_URL` automatically, no need to write it by hand.
-3. Set the rest of the project's environment variables (same keys as `backend/.env.example`): `JWT_SECRET`, `FRONTEND_URL` (the public URL Vercel gives you), and optionally `GEMINI_API_KEY`/`CLOUDINARY_*`.
-4. Start command: `npm start`. Migrations run on their own at startup (`migrate()` runs before the server starts listening), same as locally.
+- Deploy a public demo and test against a real Postgres.
+- Route-level tests for authentication and group access control.
+- Security headers, and a cookie-based session instead of `localStorage`.
+- Frontend tests.
+- Check upload contents, not just the declared type.
+- English interface.
 
-### Frontend on Vercel
+## Built with AI assistance
 
-1. Import this repo into Vercel, with `frontend/` as the project's root directory.
-2. Environment variable: `VITE_API_URL` pointing at the backend's public URL on Railway (e.g. `https://your-backend.up.railway.app/api`).
-
-### CORS
-
-In development, with `FRONTEND_URL` unset, the backend accepts requests from any origin (same as always). In production, setting `FRONTEND_URL` to the Vercel URL restricts CORS to that origin — so no other website can call your API using a logged-in user's session.
+Most of the code was written with Claude Code, working in small steps with the author, who ran the app and the tests. If you review it, judge it by the tests and the code, not by who typed it.
 
 ## Project structure
 
-```
-backend/
-  src/
-    routes/          Express endpoints, grouped by resource
-    controllers/     validate input and orchestrate the response
-    services/        business logic and data access (SQL)
-    middleware/      auth, group membership, image upload
-    validators/      Zod schemas per endpoint
-    db/              Knex connection (SQLite/Postgres) and migrations
-frontend/
-  src/
-    pages/           one screen per route
-    components/
-      ui/            Button, Input, Card, Modal, Avatar... (design system)
-      layout/        AuthLayout, AppShell
-      routing/       route guards (protected / guest-only)
-    api/             one module per resource, all over a shared fetch client
-    context/         global authentication state
-docs/screenshots/    screenshots used in this README
+```text
+backend/src/
+  routes/        Express endpoints, grouped by resource
+  controllers/   validate input and shape the response
+  services/      business logic and data access
+  middleware/    auth, group membership, image upload
+  validators/    Zod schemas
+  db/            Knex connection (SQLite or Postgres) and migrations
+frontend/src/
+  pages/         one screen per route
+  components/    design system (ui), layout and route guards
+  api/           one module per resource over a shared fetch client
+  context/       global authentication state
+docs/images/     screenshots and the social preview
 ```
 
-Each folder (`backend/`, `frontend/`) has its own `package.json` and runs independently.
+`backend/` and `frontend/` each have their own `package.json` and run independently.
 
 ## License
 
-Distributed under the [MIT license](LICENSE): you can use, copy, modify and distribute the code freely, including for commercial purposes, as long as the copyright notice is kept.
+[MIT](LICENSE)
