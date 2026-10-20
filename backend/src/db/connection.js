@@ -3,8 +3,6 @@ import fs from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import knexFactory from 'knex';
 
-const __dirname = path.dirname(fileURLToPath(import.meta.url));
-
 function crearConexion() {
   const urlPostgres = process.env.DATABASE_URL;
 
@@ -16,7 +14,8 @@ function crearConexion() {
     });
   }
 
-  const dataDir = path.join(__dirname, '../../data');
+  // Solo en SQLite: import.meta.url no existe en el bundle CommonJS de la Function de Netlify.
+  const dataDir = path.join(path.dirname(fileURLToPath(import.meta.url)), '../../data');
   fs.mkdirSync(dataDir, { recursive: true });
 
   return knexFactory({

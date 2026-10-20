@@ -83,7 +83,7 @@ export async function migrate() {
   await crearBaseSchema();
 }
 
-const isMainModule = path.resolve(process.argv[1] ?? '') === fileURLToPath(import.meta.url);
+const isMainModule = Boolean(import.meta.url) && path.resolve(process.argv[1] ?? '') === fileURLToPath(import.meta.url);
 
 if (isMainModule) {
   migrate()
