@@ -1,0 +1,31 @@
+[build]
+  command = "cd backend && npm ci && cd ../frontend && npm ci && npm run build"
+  publish = "frontend/dist"
+
+[build.environment]
+  NODE_VERSION = "22"
+
+[functions]
+  directory = "backend/netlify/functions"
+  node_bundler = "esbuild"
+  # Knex loads its database client dynamically, which the bundler cannot see.
+  external_node_modules = ["knex", "pg"]
+
+[[redirects]]
+  from = "/api/*"
+  to = "/.netlify/functions/api/:splat"
+  status = 200
+
+# Single-page app: any other path serves the app.
+[[redirects]]
+  from = "/*"
+  to = "/index.html"
+  status = 200
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+  X-Content-Type-Options = "nosniff"
+  Referrer-Policy = "strict-origin-when-cross-origin"
+  X-Frame-Options = "DENY"
+  Strict-Transport-Security = "max-age=31536000; includeSubDomains"
