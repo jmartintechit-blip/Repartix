@@ -6,14 +6,14 @@ Divide gastos de grupo a partir de una foto del ticket.
 
 [![CI](https://github.com/jmartintechit-blip/Repartix/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/jmartintechit-blip/Repartix/actions/workflows/ci.yml)
 [![Licencia: MIT](https://img.shields.io/badge/licencia-MIT-blue.svg)](LICENSE)
-![Demo: sin desplegar](https://img.shields.io/badge/demo-sin%20desplegar-lightgrey.svg)
+[![Demo](https://img.shields.io/badge/demo-live-0a6b55.svg)](https://repartix-demo.netlify.app)
 ![Node 22+](https://img.shields.io/badge/node-%3E%3D22-1b6e64.svg)
 
 Repartix permite a un grupo anotar quién pagó cada gasto, marcar qué artículos consumió cada persona, y calcula quién debe a quién con el menor número posible de pagos. Una IA de visión puede leer la foto de un ticket y rellenar los artículos y precios; sin ella, todo funciona introduciendo los datos a mano.
 
 ![Balances y liquidaciones entre tres miembros](docs/images/05-liquidaciones.png)
 
-**Todavía no hay demo en línea.** Se ejecuta en local con tres comandos (ver [Inicio rápido](#inicio-rápido)). La interfaz está en español.
+**[Prueba la demo](https://repartix-demo.netlify.app)**. Regístrate con un nombre y un email ficticios: las cuentas no se verifican y la demo es pública, así que no uses datos reales. Puede reiniciarse en cualquier momento. También puedes ejecutarla en local con tres comandos (ver [Inicio rápido](#inicio-rápido)). La interfaz está en español.
 
 > Repartix no es una app de pagos: nunca mueve dinero, solo te dice quién debe a quién. Es un proyecto de portfolio, no un servicio alojado. Ver [Limitaciones conocidas](#limitaciones-conocidas).
 
@@ -61,10 +61,11 @@ Carla debe 21,00 en total, saldados en dos pagos: 18,00 a Bruno y 3,00 a Ana.
 
 ```mermaid
 flowchart LR
-  B["Navegador<br/>SPA React"] -->|"REST, JWT"| A["API Express"]
+  B["Navegador<br/>SPA React"] -->|"ficheros estáticos"| N["Netlify CDN"]
+  B -->|"/api/*, JWT"| A["API Express<br/>(una Netlify Function)"]
   A --> K["Knex"]
   K -->|"DATABASE_URL vacía"| S[("SQLite<br/>fichero local")]
-  K -->|"DATABASE_URL definida"| P[("Postgres")]
+  K -->|"DATABASE_URL definida"| P[("Neon Postgres")]
   A -.->|"opcional"| G["Gemini<br/>lectura de tickets"]
   A -.->|"opcional"| C["Cloudinary<br/>fotos de tickets"]
 ```
@@ -72,6 +73,8 @@ flowchart LR
 Decisiones de diseño que importan:
 
 - **El dinero son céntimos enteros en todas partes.** El reparto y la simplificación de deudas nunca usan floats.
+- **La misma app Express se ejecuta en local y como función serverless.** `backend/src/app.js` la construye; `server.js` escucha en local, y `backend/netlify/functions/api.mjs` la envuelve para Netlify.
+- **La misma app Express se ejecuta en local y como función serverless.** `backend/src/app.js` la construye; `server.js` escucha en local, y `backend/netlify/functions/api.mjs` la envuelve para Netlify.
 - **Una capa de datos para dos bases de datos.** Los servicios hablan con Knex, así que el mismo código funciona con SQLite en desarrollo y con Postgres cuando se define `DATABASE_URL`. Las migraciones se aplican al arrancar.
 - **Capas.** Rutas, luego controladores (validan con Zod y responden), luego servicios (lógica de negocio y consultas).
 - **La parte de IA es opcional.** Sin claves de Gemini o Cloudinary, el botón de escanear muestra un aviso y el resto de la app no se ve afectado.
@@ -82,7 +85,7 @@ Decisiones de diseño que importan:
 | Área         | Elección                                                      |
 | ------------ | ------------------------------------------------------------- |
 | Backend      | Node.js, Express 4                                            |
-| Base de datos | Knex 3 sobre SQLite (better-sqlite3) o Postgres (`pg`)       |
+| Base de datos | Knex 3 sobre SQLite (better-sqlite3) o Postgres (`pg`); Neon en la demo |
 | Auth         | JWT y bcrypt                                                  |
 | Validación   | Zod                                                           |
 | Frontend     | React 19, Vite, React Router, CSS Modules (sin librería de UI) |
@@ -90,10 +93,12 @@ Decisiones de diseño que importan:
 | Imágenes     | Cloudinary                                                    |
 | Tests        | Vitest, pg-mem (motor en memoria compatible con Postgres)     |
 | Calidad      | oxlint, GitHub Actions, Dependabot                            |
+| Alojamiento  | Netlify (sitio estático y una Function), Neon plan gratuito   |
+| Alojamiento  | Netlify (sitio estático y una Function), Neon plan gratuito   |
 
 ## Inicio rápido
 
-Necesitas Node 22 o superior (ver [`.nvmrc`](.nvmrc)). No hace falta ninguna cuenta ni clave de API.
+Necesitas Node 22 o superior (CI y el build de la demo usan Node 24, ver [`.nvmrc`](.nvmrc)). No hace falta ninguna cuenta ni clave de API.
 
 ```bash
 cd backend && npm ci && cp .env.example .env   # luego define JWT_SECRET en .env
@@ -112,13 +117,18 @@ Sin estas variables, el botón de escanear ticket muestra un aviso y los gastos 
 | `GEMINI_API_KEY`                                                       | [Google AI Studio](https://aistudio.google.com/apikey)               |
 | `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET` | [Cloudinary](https://cloudinary.com/users/register/free), Dashboard  |
 
-### Despliegue (documentado, no ejecutado)
+### Despliegue
 
-La configuración objetivo es el backend en Railway con su plugin de Postgres y el frontend en Vercel. Nada de esto se ha desplegado todavía, así que toma estos pasos como un plan.
+La demo corre en Netlify con una base de datos Postgres en Neon, ambos en planes gratuitos. [`netlify.toml`](netlify.toml) construye el frontend como ficheros estáticos y enruta `/api/*` a la app Express, envuelta como una sola Netlify Function. Define estas variables de entorno en la interfaz de Netlify, nunca en git:
 
-1. Backend: conecta la carpeta `backend/`, añade el plugin de Postgres (aporta `DATABASE_URL`), define `JWT_SECRET` y `FRONTEND_URL`, arranca con `npm start`.
-2. Frontend: usa `frontend/` como directorio raíz y define `VITE_API_URL` con la URL pública del backend terminada en `/api`.
-3. `FRONTEND_URL` restringe el CORS a ese origen. Vacía (desarrollo), la API acepta cualquier origen.
+| Variable       | Para qué sirve                                                                              |
+| -------------- | ------------------------------------------------------------------------------------------- |
+| `DATABASE_URL` | Cadena de conexión agrupada (pooled) de Neon. Las migraciones se aplican en la primera petición |
+| `JWT_SECRET`   | Valor aleatorio largo que firma las sesiones                                                |
+| `FRONTEND_URL` | La URL del propio sitio, para restringir el CORS                                            |
+| `VITE_API_URL` | `/api`, para que el frontend llame a la API en el mismo origen                              |
+
+La demo se despliega a mano (subida y build en Netlify), no automáticamente desde CI.
 
 ## Calidad y seguridad
 
@@ -134,16 +144,21 @@ La configuración objetivo es el backend en Railway con su plugin de Postgres y 
 - Las subidas de tickets están limitadas a 8 MB y a JPEG, PNG, HEIC y WEBP.
 - Los secretos viven en variables de entorno. Los ficheros `.env` están en `.gitignore` y solo se versionan los `.env.example`.
 
+**Comprobación en vivo.** El 2026-10-20 pasó una prueba manual contra la demo desplegada: registro, login, rechazo de contraseña incorrecta, creación de grupo y unión a él, un gasto dividido a partes iguales con los balances esperados, y las respuestas 401/404 para peticiones sin token y para quien no es miembro. No forma parte de CI.
+
+**Comprobación en vivo.** El 2026-10-20 pasó una prueba manual contra la demo desplegada: registro, login, rechazo de contraseña incorrecta, creación de grupo y unión a él, un gasto dividido a partes iguales con los balances esperados, y las respuestas 401/404 para peticiones sin token y para quien no es miembro. No forma parte de CI.
+
 Para reportar vulnerabilidades, ver [SECURITY.md](SECURITY.md). Las alertas de Dependabot, el escaneo de secretos y la protección en push están activados en el repositorio.
 
 ## Limitaciones conocidas
 
-- **Sin demo en línea.** La configuración de Railway y Vercel está documentada pero no se ha desplegado.
-- **Postgres real sin probar.** El camino de Postgres solo se comprobó contra pg-mem, porque no había Docker disponible. Prueba el registro y el login justo después de un primer despliegue.
+- **Demo pública con registro abierto.** Las cuentas no se verifican y los datos no son privados. La demo puede reiniciarse, y la primera petición tras un rato de inactividad puede ser lenta (el plan gratuito de Neon suspende el cómputo tras 5 minutos sin actividad).
+- **El Postgres de CI es simulado.** El test automático de Postgres corre sobre pg-mem. La base de datos real de Neon solo se comprobó a mano.
+- **Despliegues manuales.** La demo no se vuelve a desplegar sola cuando cambia `main`.
 - **El escaneo de tickets no tiene tests automáticos.** Las llamadas a Gemini y Cloudinary no se han ejercitado contra los servicios reales en CI.
 - **La cobertura de tests es estrecha.** No hay tests del frontend, ni de las rutas HTTP, la autenticación o el control de acceso.
 - **Token en el navegador.** El JWT se guarda en `localStorage`, así que un fallo XSS lo expondría.
-- **Sin cabeceras de seguridad y con límite de peticiones parcial.** No hay `helmet`, y solo las rutas de autenticación tienen límite de peticiones.
+- **Pocas cabeceras de seguridad y límite de peticiones parcial.** El sitio estático envía algunas cabeceras (`netlify.toml`), la API no envía ninguna (no hay `helmet`), y solo las rutas de autenticación tienen límite de peticiones, con contadores en memoria por instancia de la función.
 - **La comprobación de subidas confía en el tipo declarado.** Los ficheros se filtran por el tipo MIME que envía el cliente, no por su contenido.
 - **Sin recuperación de contraseña ni verificación de email.**
 - **Solo en español.** La interfaz está en español y los identificadores y comentarios del código también lo están en su mayoría. Los importes se muestran en euros.
@@ -152,7 +167,8 @@ Para reportar vulnerabilidades, ver [SECURITY.md](SECURITY.md). Las alertas de D
 
 Ideas, no promesas:
 
-- Desplegar una demo pública y probar contra un Postgres real.
+- Desplegar la demo automáticamente desde CI y reiniciar sus datos de forma periódica.
+- Ejecutar los tests de Postgres contra un Postgres real en CI.
 - Tests de rutas para la autenticación y el control de acceso a grupos.
 - Cabeceras de seguridad y sesión con cookie en lugar de `localStorage`.
 - Tests del frontend.

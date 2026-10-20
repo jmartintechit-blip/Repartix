@@ -4,6 +4,18 @@ All notable changes are listed here. The format follows [Keep a Changelog](https
 
 ## [Unreleased]
 
+### Added
+
+- Public demo on Netlify with a Neon Postgres database: the Express API runs as one Netlify Function behind `/api/*` and the frontend is served as static files. Configuration in `netlify.toml`.
+- `backend/src/app.js`, split from `server.js` so the app can run inside a function.
+- `.gitattributes` to keep LF line endings.
+
+### Changed
+
+- Node 24 in `.nvmrc` (CI and the demo build).
+- Dependabot now groups minor and patch updates and checks monthly. Patch and minor dependency updates applied in one commit.
+- The database modules no longer read `import.meta.url` at load time, so they can be bundled as CommonJS.
+
 ## [0.1.0] - 2026-10-20
 
 First public version.

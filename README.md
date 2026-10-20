@@ -6,14 +6,14 @@ Split group expenses from a photo of the receipt.
 
 [![CI](https://github.com/jmartintechit-blip/Repartix/actions/workflows/ci.yml/badge.svg?branch=main)](https://github.com/jmartintechit-blip/Repartix/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
-![Demo: not deployed](https://img.shields.io/badge/demo-not%20deployed-lightgrey.svg)
+[![Demo](https://img.shields.io/badge/demo-live-0a6b55.svg)](https://repartix-demo.netlify.app)
 ![Node 22+](https://img.shields.io/badge/node-%3E%3D22-1b6e64.svg)
 
 Repartix lets a group record who paid for what, mark which items each person had, and works out who owes whom with the fewest possible payments. A vision AI can read a receipt photo and pre-fill the items and prices; without it, everything works with manual entry.
 
 ![Balances and settlements between three members](docs/images/05-liquidaciones.png)
 
-**There is no live demo yet.** Run it locally in three commands (see [Quickstart](#quickstart)). The interface is in Spanish.
+**[Try the demo](https://repartix-demo.netlify.app)**. Sign up with a fictitious name and email: accounts are not verified and the demo is public, so use no real data. It may be reset at any time. You can also run it locally in three commands (see [Quickstart](#quickstart)). The interface is in Spanish.
 
 > Repartix is not a payment app: it never moves money, it only tells you who owes whom. It is a portfolio project, not a hosted service. See [Known limitations](#known-limitations).
 
@@ -61,10 +61,11 @@ Carla owes 21.00 in total, settled as two payments: 18.00 to Bruno and 3.00 to A
 
 ```mermaid
 flowchart LR
-  B["Browser<br/>React SPA"] -->|"REST, JWT"| A["Express API"]
+  B["Browser<br/>React SPA"] -->|"static files"| N["Netlify CDN"]
+  B -->|"/api/*, JWT"| A["Express API<br/>(one Netlify Function)"]
   A --> K["Knex"]
   K -->|"DATABASE_URL empty"| S[("SQLite<br/>local file")]
-  K -->|"DATABASE_URL set"| P[("Postgres")]
+  K -->|"DATABASE_URL set"| P[("Neon Postgres")]
   A -.->|"optional"| G["Gemini<br/>receipt reading"]
   A -.->|"optional"| C["Cloudinary<br/>receipt photos"]
 ```
@@ -72,6 +73,8 @@ flowchart LR
 Design decisions that matter:
 
 - **Money is integer cents everywhere.** The split and the debt simplification never touch floats.
+- **The same Express app runs locally and as a serverless function.** `backend/src/app.js` builds it; `server.js` listens locally, and `backend/netlify/functions/api.mjs` wraps it for Netlify.
+- **The same Express app runs locally and as a serverless function.** `backend/src/app.js` builds it; `server.js` listens locally, and `backend/netlify/functions/api.mjs` wraps it for Netlify.
 - **One data layer for two databases.** Services talk to Knex, so the same code runs on SQLite in development and on Postgres when `DATABASE_URL` is set. Migrations run at startup.
 - **Layers.** Routes, then controllers (validate with Zod and answer), then services (business logic and queries).
 - **The AI part is optional.** Without Gemini or Cloudinary keys the scan button shows a notice and the rest of the app is unaffected.
@@ -82,7 +85,7 @@ Design decisions that matter:
 | Area       | Choice                                                    |
 | ---------- | --------------------------------------------------------- |
 | Backend    | Node.js, Express 4                                        |
-| Database   | Knex 3 over SQLite (better-sqlite3) or Postgres (`pg`)    |
+| Database   | Knex 3 over SQLite (better-sqlite3) or Postgres (`pg`); Neon in the demo |
 | Auth       | JWT and bcrypt                                            |
 | Validation | Zod                                                       |
 | Frontend   | React 19, Vite, React Router, CSS Modules (no UI library) |
@@ -90,10 +93,12 @@ Design decisions that matter:
 | Images     | Cloudinary                                                |
 | Tests      | Vitest, pg-mem (in-memory Postgres-compatible engine)     |
 | Quality    | oxlint, GitHub Actions, Dependabot                        |
+| Hosting    | Netlify (static site and one Function), Neon free tier    |
+| Hosting    | Netlify (static site and one Function), Neon free tier    |
 
 ## Quickstart
 
-You need Node 22 or newer (see [`.nvmrc`](.nvmrc)). No account or API key is required.
+You need Node 22 or newer (CI and the demo build run Node 24, see [`.nvmrc`](.nvmrc)). No account or API key is required.
 
 ```bash
 cd backend && npm ci && cp .env.example .env   # then set JWT_SECRET in .env
@@ -112,13 +117,18 @@ Without these variables the "scan receipt" button shows a notice and expenses ar
 | `GEMINI_API_KEY`                                                      | [Google AI Studio](https://aistudio.google.com/apikey)                |
 | `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, `CLOUDINARY_API_SECRET` | [Cloudinary](https://cloudinary.com/users/register/free), Dashboard   |
 
-### Deploying (documented, not exercised)
+### Deploying
 
-The target setup is the backend on Railway with its Postgres plugin and the frontend on Vercel. None of it has been deployed yet, so treat these steps as a plan.
+The demo runs on Netlify with a Neon Postgres database, both on free plans. [`netlify.toml`](netlify.toml) builds the frontend as static files and routes `/api/*` to the Express app, wrapped as one Netlify Function. Set these environment variables in the Netlify UI, never in git:
 
-1. Backend: connect the `backend/` folder, add the Postgres plugin (it provides `DATABASE_URL`), set `JWT_SECRET` and `FRONTEND_URL`, start with `npm start`.
-2. Frontend: use `frontend/` as the root directory and set `VITE_API_URL` to the backend's public URL ending in `/api`.
-3. `FRONTEND_URL` restricts CORS to that origin. Left empty (development), the API accepts any origin.
+| Variable       | Purpose                                                              |
+| -------------- | -------------------------------------------------------------------- |
+| `DATABASE_URL` | Neon pooled connection string. Migrations run on the first request  |
+| `JWT_SECRET`   | Long random value that signs the sessions                            |
+| `FRONTEND_URL` | The site's own URL, to restrict CORS                                 |
+| `VITE_API_URL` | `/api`, so the frontend calls the API on the same origin            |
+
+The demo is deployed by hand (upload and build on Netlify), not automatically from CI.
 
 ## Quality and security
 
@@ -134,16 +144,21 @@ The target setup is the backend on Railway with its Postgres plugin and the fron
 - Receipt uploads are capped at 8 MB and limited to JPEG, PNG, HEIC and WEBP.
 - Secrets live in environment variables. `.env` files are git-ignored and only `.env.example` files are committed.
 
+**Live check.** On 2026-10-20 a manual smoke test against the deployed demo passed: sign-up, login, wrong-password rejection, group creation and joining, an expense split equally with the expected balances, and the 401/404 answers for missing tokens and non-members. It is not part of CI.
+
+**Live check.** On 2026-10-20 a manual smoke test against the deployed demo passed: sign-up, login, wrong-password rejection, group creation and joining, an expense split equally with the expected balances, and the 401/404 answers for missing tokens and non-members. It is not part of CI.
+
 Vulnerability reports: see [SECURITY.md](SECURITY.md). Dependabot alerts, secret scanning and push protection are enabled on the repository.
 
 ## Known limitations
 
-- **No live demo.** The Railway and Vercel setup is documented but has not been deployed.
-- **Real Postgres is untested.** The Postgres path was only checked against pg-mem, because no Docker was available. Smoke-test sign-up and login right after a first deploy.
+- **Public demo with open sign-up.** Accounts are not verified and the data is not private. The demo may be reset, and the first request after idle time can be slow (the Neon free tier suspends compute after 5 minutes of inactivity).
+- **Postgres in CI is simulated.** The automated Postgres test runs on pg-mem. The real Neon database was only checked by hand.
+- **Manual deploys.** The demo is not redeployed automatically when `main` changes.
 - **Receipt scanning is not covered by automated tests.** The Gemini and Cloudinary calls have not been exercised against the live services in CI.
 - **Test coverage is narrow.** There are no frontend tests, and no tests for the HTTP routes, authentication or access control.
 - **Browser-side token.** The JWT is kept in `localStorage`, so an XSS bug would expose it.
-- **No security headers and limited rate limiting.** There is no `helmet`, and only the auth routes are rate limited.
+- **Few security headers and limited rate limiting.** The static site sends a few headers (`netlify.toml`), the API sends none (no `helmet`), and only the auth routes are rate limited, with counters kept in memory per function instance.
 - **Upload check trusts the declared type.** Uploads are filtered by the MIME type the client sends, not by file content.
 - **No password recovery or email verification.**
 - **Spanish only.** The interface is in Spanish and the code identifiers and comments are mostly Spanish too. Amounts are shown in euros.
@@ -152,7 +167,8 @@ Vulnerability reports: see [SECURITY.md](SECURITY.md). Dependabot alerts, secret
 
 Ideas, not promises:
 
-- Deploy a public demo and test against a real Postgres.
+- Deploy the demo automatically from CI, and reset its data on a schedule.
+- Run the Postgres tests against a real Postgres in CI.
 - Route-level tests for authentication and group access control.
 - Security headers, and a cookie-based session instead of `localStorage`.
 - Frontend tests.

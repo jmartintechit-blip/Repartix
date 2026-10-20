@@ -1,6 +1,6 @@
 # Security policy
 
-Repartix is a portfolio project, not a hosted service. There is no public deployment and no real user data. Reports are still welcome.
+Repartix is a portfolio project, not a service with real customers. Its public demo at <https://repartix-demo.netlify.app> should hold only fictitious data. Reports are still welcome.
 
 ## Reporting a vulnerability
 
@@ -24,9 +24,9 @@ Only the latest release and the `main` branch receive fixes.
 - The known limitations listed in the [README](README.md#known-limitations), for example the missing security headers or the token kept in `localStorage`.
 - Permissive CORS when `FRONTEND_URL` is not set. That is the documented development default; production deployments are expected to set it.
 - Findings that need a leaked `.env` file or a weak `JWT_SECRET` chosen by the person running the app.
-- Denial of service by sheer volume, and the free-tier limits of third-party services (Gemini, Cloudinary, Railway, Vercel).
+- Denial of service by sheer volume, and the free-tier limits of third-party services (Gemini, Cloudinary, Netlify, Neon).
 - Social engineering.
 
 ## Scope
 
-In scope: the code in this repository. Dependency advisories are tracked with Dependabot.
+In scope: the code in this repository and the demo at <https://repartix-demo.netlify.app>. Dependency advisories are tracked with Dependabot.
