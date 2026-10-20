@@ -1,14 +1,21 @@
 version: 2
 updates:
+  # Minor and patch updates arrive as one pull request per folder, not one per package.
   - package-ecosystem: npm
     directory: /backend
     schedule:
-      interval: weekly
+      interval: monthly
+    groups:
+      npm-minor-patch:
+        update-types: [minor, patch]
   - package-ecosystem: npm
     directory: /frontend
     schedule:
-      interval: weekly
+      interval: monthly
+    groups:
+      npm-minor-patch:
+        update-types: [minor, patch]
   - package-ecosystem: github-actions
     directory: /
     schedule:
-      interval: weekly
+      interval: monthly
