@@ -17,3 +17,6 @@ backend/data/
 
 # uploads locales de desarrollo (si se usan antes de tener Cloudinary configurado)
 backend/uploads/
+
+# Private project notes (never published)
+private/
