@@ -20,3 +20,6 @@ backend/uploads/
 
 # Private project notes (never published)
 private/
+
+# Netlify local link state
+.netlify/
