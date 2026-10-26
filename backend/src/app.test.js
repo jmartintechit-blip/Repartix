@@ -22,6 +22,7 @@ process.env.JWT_SECRET = 'secreto-solo-para-tests';
 
 const { default: app } = await import('./app.js');
 const { migrate } = await import('./db/migrate.js');
+const authService = await import('./services/auth.service.js');
 
 let servidor;
 let base;
@@ -49,13 +50,12 @@ async function llamar(metodo, ruta, { token, cuerpo, crudo } = {}) {
 }
 
 let contador = 0;
+// Se crea por servicio y no por HTTP para no gastar el cupo del limitador de auth.
 async function nuevoUsuario(nombre) {
   contador += 1;
   const email = `${nombre.toLowerCase()}${contador}@test.com`;
-  const { json } = await llamar('POST', '/api/auth/registro', {
-    cuerpo: { nombre, email, password: 'password123' },
-  });
-  return { id: json.usuario.id, email, token: json.token };
+  const usuario = await authService.crearUsuario({ nombre, email, password: 'password123' });
+  return { id: usuario.id, email, token: authService.generarToken(usuario) };
 }
 
 describe('autenticacion', () => {
@@ -200,5 +200,43 @@ describe('gastos y liquidaciones', () => {
       cuerpo: { descripcion: 'Negativo', monto_total: -5 },
     });
     expect(res.status).toBe(400);
+  });
+});
+
+describe('cabeceras de seguridad', () => {
+  it('la API envia cabeceras de helmet', async () => {
+    const res = await fetch(`${base}/api/health`);
+    expect(res.headers.get('x-content-type-options')).toBe('nosniff');
+    expect(res.headers.get('x-powered-by')).toBeNull();
+  });
+});
+
+describe('subida de la foto del ticket', () => {
+  async function subir(token, grupoId, bytes, tipoDeclarado) {
+    const formulario = new FormData();
+    formulario.append('imagen', new Blob([bytes], { type: tipoDeclarado }), 'ticket');
+    const res = await fetch(`${base}/api/grupos/${grupoId}/gastos/analizar-ticket`, {
+      method: 'POST',
+      headers: { authorization: `Bearer ${token}` },
+      body: formulario,
+    });
+    return { status: res.status, json: await res.json() };
+  }
+
+  it('rechaza con 400 un fichero que declara ser PNG pero no lo es', async () => {
+    const ana = await nuevoUsuario('Ana');
+    const { json: g } = await llamar('POST', '/api/grupos', { token: ana.token, cuerpo: { nombre: 'Foto' } });
+    const falso = await subir(ana.token, g.grupo.id, '<script>alert(1)</script>', 'image/png');
+    expect(falso.status).toBe(400);
+    expect(falso.json.error).toMatch(/no es una imagen/);
+  });
+
+  it('una imagen real pasa la validacion y, sin claves de IA, responde 200 con avisos', async () => {
+    const ana = await nuevoUsuario('Ana');
+    const { json: g } = await llamar('POST', '/api/grupos', { token: ana.token, cuerpo: { nombre: 'Foto2' } });
+    const png = Buffer.concat([Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]), Buffer.alloc(32)]);
+    const ok = await subir(ana.token, g.grupo.id, png, 'image/png');
+    expect(ok.status).toBe(200);
+    expect(ok.json.avisos.length).toBeGreaterThan(0);
   });
 });

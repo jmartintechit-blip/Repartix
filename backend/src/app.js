@@ -2,6 +2,7 @@ import './config/env.js';
 import express from 'express';
 import 'express-async-errors';
 import cors from 'cors';
+import helmet from 'helmet';
 import multer from 'multer';
 import authRoutes from './routes/auth.routes.js';
 import gruposRoutes from './routes/grupos.routes.js';
@@ -9,6 +10,8 @@ import gastosRoutes from './routes/gastos.routes.js';
 import liquidacionesRoutes from './routes/liquidaciones.routes.js';
 
 const app = express();
+
+app.use(helmet());
 
 // Sin FRONTEND_URL (desarrollo local) se admite cualquier origen, igual que
 // antes. En produccion se define FRONTEND_URL y solo ese origen puede llamar
