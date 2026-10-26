@@ -1,0 +1,28 @@
+.contenido {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-4);
+}
+
+.codigo {
+  font-family: var(--font-mono);
+  font-weight: 700;
+  letter-spacing: 0.1em;
+  font-size: 1.5rem;
+}
+
+.error {
+  color: var(--color-danger);
+}
+
+.acciones {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.cancelar {
+  color: var(--color-ink-muted);
+  text-decoration: none;
+}

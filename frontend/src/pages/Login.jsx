@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import AuthLayout from '../components/layout/AuthLayout.jsx';
 import Input from '../components/ui/Input.jsx';
 import Button from '../components/ui/Button.jsx';
@@ -9,6 +9,7 @@ import styles from './Auth.module.css';
 export default function Login() {
   const { login } = useAuth();
   const navigate = useNavigate();
+  const { state } = useLocation(); // `from`: pagina a la que volver tras entrar (p. ej. un enlace de invitacion)
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -23,7 +24,7 @@ export default function Login() {
     setEnviando(true);
     try {
       await login({ email, password });
-      navigate('/dashboard', { replace: true });
+      navigate(state?.from ?? '/dashboard', { replace: true });
     } catch (err) {
       if (err.detalles) {
         setErrores(Object.fromEntries(Object.entries(err.detalles).map(([campo, msgs]) => [campo, msgs[0]])));
@@ -69,7 +70,7 @@ export default function Login() {
       </form>
       <p className={styles.footer}>
         ¿No tienes cuenta?{' '}
-        <Link to="/registro" className={styles.link}>
+        <Link to="/registro" state={state} className={styles.link}>
           Crea una
         </Link>
       </p>

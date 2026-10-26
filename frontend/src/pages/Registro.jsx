@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useLocation, useNavigate } from 'react-router-dom';
 import AuthLayout from '../components/layout/AuthLayout.jsx';
 import Input from '../components/ui/Input.jsx';
 import Button from '../components/ui/Button.jsx';
@@ -9,6 +9,7 @@ import styles from './Auth.module.css';
 export default function Registro() {
   const { registro } = useAuth();
   const navigate = useNavigate();
+  const { state } = useLocation(); // `from`: pagina a la que volver tras entrar (p. ej. un enlace de invitacion)
 
   const [nombre, setNombre] = useState('');
   const [email, setEmail] = useState('');
@@ -24,7 +25,7 @@ export default function Registro() {
     setEnviando(true);
     try {
       await registro({ nombre, email, password });
-      navigate('/dashboard', { replace: true });
+      navigate(state?.from ?? '/dashboard', { replace: true });
     } catch (err) {
       if (err.detalles) {
         setErrores(Object.fromEntries(Object.entries(err.detalles).map(([campo, msgs]) => [campo, msgs[0]])));
@@ -80,7 +81,7 @@ export default function Registro() {
       </form>
       <p className={styles.footer}>
         ¿Ya tienes cuenta?{' '}
-        <Link to="/" className={styles.link}>
+        <Link to="/" state={state} className={styles.link}>
           Inicia sesion
         </Link>
       </p>

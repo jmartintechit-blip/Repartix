@@ -22,7 +22,7 @@ export default function GrupoDetalle() {
   const [miembros, setMiembros] = useState([]);
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState('');
-  const [copiado, setCopiado] = useState(false);
+  const [copiado, setCopiado] = useState('');
 
   const [gastos, setGastos] = useState([]);
   const [cargandoGastos, setCargandoGastos] = useState(true);
@@ -69,12 +69,12 @@ export default function GrupoDetalle() {
     };
   }, [token, id]);
 
-  function copiarCodigo() {
+  function copiar(texto, que) {
     navigator.clipboard
-      .writeText(grupo.codigo_invitacion)
+      .writeText(texto)
       .then(() => {
-        setCopiado(true);
-        setTimeout(() => setCopiado(false), 2000);
+        setCopiado(que);
+        setTimeout(() => setCopiado(''), 2000);
       })
       .catch(() => {
         // Portapapeles bloqueado por el navegador (permisos, contexto no seguro, etc.):
@@ -162,9 +162,17 @@ export default function GrupoDetalle() {
       <div className={styles.encabezado}>
         <h1>{grupo.nombre}</h1>
         <div className={styles.accionesEncabezado}>
-          <button type="button" className={styles.codigo} onClick={copiarCodigo}>
+          <button type="button" className={styles.codigo} onClick={() => copiar(grupo.codigo_invitacion, 'codigo')}>
             Codigo: <span className={styles.codigoValor}>{grupo.codigo_invitacion}</span>
-            <span className={styles.copiar}>{copiado ? 'Copiado' : 'Copiar'}</span>
+            <span className={styles.copiar}>{copiado === 'codigo' ? 'Copiado' : 'Copiar'}</span>
+          </button>
+          <button
+            type="button"
+            className={styles.codigo}
+            onClick={() => copiar(`${window.location.origin}/unirse/${grupo.codigo_invitacion}`, 'enlace')}
+          >
+            Enlace de invitacion
+            <span className={styles.copiar}>{copiado === 'enlace' ? 'Copiado' : 'Copiar'}</span>
           </button>
           <Button variant="secondary" onClick={() => navigate(`/grupos/${id}/liquidaciones`)}>
             Balances y liquidaciones

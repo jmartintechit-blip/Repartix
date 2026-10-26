@@ -25,7 +25,7 @@ Splitting the bill after a trip or a dinner usually ends in an improvised spread
 
 - Sign up and log in, with hashed passwords and JWT sessions.
 - Account page: change your name or password, or delete your account. Deleting removes your name and email; where you still have expenses, shares or settlements in a group, the account is kept anonymised ("Usuario eliminado") so other members' balances stay correct. A deleted account's token stops working immediately.
-- Create a group, or join one with a 6-character invite code.
+- Create a group, or join one with a 6-character invite code or an invite link (it asks for confirmation, and after logging in or signing up it brings you back to the invitation).
 - Manage a group: the creator can rename it, replace the invite code, remove a member or delete it; members can leave. Someone with expenses, assigned shares or settlements in the group cannot be removed, so balances always add up.
 - Add an expense with its line items. Optionally upload a receipt photo and let Gemini extract the items and total, editable before saving.
 - Edit an expense after saving it (only whoever paid): items that are kept keep who had them.
