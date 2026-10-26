@@ -1,7 +1,7 @@
-import { createContext, useCallback, useContext, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState } from 'react';
 import * as authApi from '../api/auth.js';
+import { AuthContext } from './authContextObject.js';
 
-const AuthContext = createContext(null);
 const STORAGE_KEY = 'repartix_token';
 
 export function AuthProvider({ children }) {
@@ -68,10 +68,4 @@ export function AuthProvider({ children }) {
   };
 
   return <AuthContext.Provider value={valor}>{children}</AuthContext.Provider>;
-}
-
-export function useAuth() {
-  const contexto = useContext(AuthContext);
-  if (!contexto) throw new Error('useAuth debe usarse dentro de <AuthProvider>');
-  return contexto;
 }

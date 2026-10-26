@@ -2,7 +2,7 @@ import { useState } from 'react';
 import Input from '../ui/Input.jsx';
 import Button from '../ui/Button.jsx';
 import { crearGasto, analizarTicket } from '../../api/gastos.js';
-import { useAuth } from '../../context/AuthContext.jsx';
+import { useAuth } from '../../context/useAuth.js';
 import styles from './FormularioNuevoGasto.module.css';
 
 export default function FormularioNuevoGasto({ grupoId, miembros, onCreado }) {

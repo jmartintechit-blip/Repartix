@@ -2,7 +2,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import Logo from '../ui/Logo.jsx';
 import Button from '../ui/Button.jsx';
 import Avatar from '../ui/Avatar.jsx';
-import { useAuth } from '../../context/AuthContext.jsx';
+import { useAuth } from '../../context/useAuth.js';
 import styles from './AppShell.module.css';
 
 export default function AppShell({ children }) {

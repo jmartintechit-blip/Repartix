@@ -10,7 +10,7 @@ import {
   listarLiquidaciones,
   marcarLiquidacionPagada,
 } from '../api/liquidaciones.js';
-import { useAuth } from '../context/AuthContext.jsx';
+import { useAuth } from '../context/useAuth.js';
 import { formatearMoneda } from '../utils/formato.js';
 import styles from './Liquidaciones.module.css';
 
@@ -26,27 +26,24 @@ export default function Liquidaciones() {
   const [calculando, setCalculando] = useState(false);
   const [actualizando, setActualizando] = useState(null);
 
-  const cargar = useCallback(async () => {
-    setError('');
-    setItemsSinAsignar(null);
-    try {
-      const [datosBalances, datosLiquidaciones] = await Promise.all([
-        obtenerBalances(token, grupoId),
-        listarLiquidaciones(token, grupoId),
-      ]);
-      setBalances(datosBalances.balances);
-      setLiquidaciones(datosLiquidaciones.liquidaciones);
-    } catch (err) {
-      if (err.data?.items_sin_asignar) {
-        setItemsSinAsignar(err.data.items_sin_asignar);
-      } else {
-        setError(err.message);
-      }
-    }
-  }, [token, grupoId]);
+  const cargar = useCallback(
+    () =>
+      Promise.all([obtenerBalances(token, grupoId), listarLiquidaciones(token, grupoId)])
+        .then(([datosBalances, datosLiquidaciones]) => {
+          setBalances(datosBalances.balances);
+          setLiquidaciones(datosLiquidaciones.liquidaciones);
+        })
+        .catch((err) => {
+          if (err.data?.items_sin_asignar) {
+            setItemsSinAsignar(err.data.items_sin_asignar);
+          } else {
+            setError(err.message);
+          }
+        }),
+    [token, grupoId]
+  );
 
   useEffect(() => {
-    setCargando(true);
     cargar().finally(() => setCargando(false));
   }, [cargar]);
 

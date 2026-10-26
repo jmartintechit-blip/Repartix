@@ -8,7 +8,7 @@ import Modal from '../components/ui/Modal.jsx';
 import FormularioNuevoGasto from '../components/gastos/FormularioNuevoGasto.jsx';
 import { obtenerGrupo } from '../api/grupos.js';
 import { listarGastos } from '../api/gastos.js';
-import { useAuth } from '../context/AuthContext.jsx';
+import { useAuth } from '../context/useAuth.js';
 import { formatearMoneda, formatearFecha } from '../utils/formato.js';
 import styles from './GrupoDetalle.module.css';
 
@@ -30,8 +30,6 @@ export default function GrupoDetalle() {
 
   useEffect(() => {
     let cancelado = false;
-    setCargando(true);
-    setError('');
     obtenerGrupo(token, id)
       .then((datos) => {
         if (cancelado) return;
@@ -51,8 +49,6 @@ export default function GrupoDetalle() {
 
   useEffect(() => {
     let cancelado = false;
-    setCargandoGastos(true);
-    setErrorGastos('');
     listarGastos(token, id)
       .then((datos) => {
         if (!cancelado) setGastos(datos.gastos);

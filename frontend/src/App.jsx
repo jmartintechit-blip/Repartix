@@ -1,4 +1,5 @@
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { Fragment } from 'react';
+import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext.jsx';
 import RutaProtegida from './components/routing/RutaProtegida.jsx';
 import RutaInvitado from './components/routing/RutaInvitado.jsx';
@@ -8,6 +9,13 @@ import Dashboard from './pages/Dashboard.jsx';
 import GrupoDetalle from './pages/GrupoDetalle.jsx';
 import GastoDetalle from './pages/GastoDetalle.jsx';
 import Liquidaciones from './pages/Liquidaciones.jsx';
+
+// Remonta la pagina al cambiar de grupo o gasto: asi el estado de carga vuelve a empezar
+// sin tener que reiniciarlo dentro de un efecto.
+function PorRuta({ children }) {
+  const { pathname } = useLocation();
+  return <Fragment key={pathname}>{children}</Fragment>;
+}
 
 export default function App() {
   return (
@@ -42,7 +50,9 @@ export default function App() {
             path="/grupos/:id"
             element={
               <RutaProtegida>
-                <GrupoDetalle />
+                <PorRuta>
+                  <GrupoDetalle />
+                </PorRuta>
               </RutaProtegida>
             }
           />
@@ -50,7 +60,9 @@ export default function App() {
             path="/grupos/:id/gastos/:gastoId"
             element={
               <RutaProtegida>
-                <GastoDetalle />
+                <PorRuta>
+                  <GastoDetalle />
+                </PorRuta>
               </RutaProtegida>
             }
           />
@@ -58,7 +70,9 @@ export default function App() {
             path="/grupos/:id/liquidaciones"
             element={
               <RutaProtegida>
-                <Liquidaciones />
+                <PorRuta>
+                  <Liquidaciones />
+                </PorRuta>
               </RutaProtegida>
             }
           />

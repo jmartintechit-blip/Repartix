@@ -7,7 +7,7 @@ import Modal from '../components/ui/Modal.jsx';
 import FormularioCrearGrupo from '../components/grupos/FormularioCrearGrupo.jsx';
 import FormularioUnirseGrupo from '../components/grupos/FormularioUnirseGrupo.jsx';
 import { listarGrupos } from '../api/grupos.js';
-import { useAuth } from '../context/AuthContext.jsx';
+import { useAuth } from '../context/useAuth.js';
 import styles from './Dashboard.module.css';
 
 export default function Dashboard() {

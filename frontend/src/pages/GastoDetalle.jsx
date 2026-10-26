@@ -6,7 +6,7 @@ import Button from '../components/ui/Button.jsx';
 import Avatar from '../components/ui/Avatar.jsx';
 import { obtenerGasto, eliminarGasto, asignarItem, dividirPartesIguales } from '../api/gastos.js';
 import { obtenerGrupo } from '../api/grupos.js';
-import { useAuth } from '../context/AuthContext.jsx';
+import { useAuth } from '../context/useAuth.js';
 import { formatearMoneda, formatearFecha } from '../utils/formato.js';
 import styles from './GastoDetalle.module.css';
 
@@ -34,8 +34,6 @@ export default function GastoDetalle() {
 
   useEffect(() => {
     let cancelado = false;
-    setCargando(true);
-    setError('');
     cargar()
       .catch((err) => {
         if (!cancelado) setError(err.message);
