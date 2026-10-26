@@ -23,3 +23,6 @@ private/
 
 # Netlify local link state
 .netlify/
+
+# Private Claude Code instructions (never published)
+CLAUDE.md
