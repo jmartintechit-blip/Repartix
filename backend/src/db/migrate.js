@@ -81,6 +81,22 @@ async function crearBaseSchema() {
 // instalaciones ya migradas.
 export async function migrate() {
   await crearBaseSchema();
+  await anadirCreadorAGrupos();
+}
+
+// v0.2: cada grupo tiene un creador que lo administra. En grupos anteriores
+// se asigna al miembro que se unio primero (el que lo creo en la practica).
+async function anadirCreadorAGrupos() {
+  if (!(await db.schema.hasColumn('grupos', 'creado_por'))) {
+    await db.schema.alterTable('grupos', (table) => {
+      table.integer('creado_por').references('id').inTable('usuarios');
+    });
+  }
+  const huerfanos = await db('grupos').whereNull('creado_por').select('id');
+  for (const { id } of huerfanos) {
+    const primero = await db('usuario_grupo').where({ grupo_id: id }).orderBy('fecha_union', 'asc').first();
+    if (primero) await db('grupos').where({ id }).update({ creado_por: primero.usuario_id });
+  }
 }
 
 const isMainModule = Boolean(import.meta.url) && path.resolve(process.argv[1] ?? '') === fileURLToPath(import.meta.url);

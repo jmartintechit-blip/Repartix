@@ -15,3 +15,20 @@ export function unirseAGrupo(token, { codigo_invitacion }) {
 export function obtenerGrupo(token, id) {
   return apiFetch(`/grupos/${id}`, { token });
 }
+
+export function renombrarGrupo(token, id, { nombre }) {
+  return apiFetch(`/grupos/${id}`, { method: 'PATCH', token, body: { nombre } });
+}
+
+export function regenerarCodigo(token, id) {
+  return apiFetch(`/grupos/${id}/codigo`, { method: 'POST', token });
+}
+
+export function eliminarGrupo(token, id) {
+  return apiFetch(`/grupos/${id}`, { method: 'DELETE', token });
+}
+
+// Sirve para salir (el propio usuario) y para expulsar (el creador)
+export function quitarMiembro(token, grupoId, usuarioId) {
+  return apiFetch(`/grupos/${grupoId}/miembros/${usuarioId}`, { method: 'DELETE', token });
+}

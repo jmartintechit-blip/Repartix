@@ -6,7 +6,8 @@ import Avatar from '../components/ui/Avatar.jsx';
 import Button from '../components/ui/Button.jsx';
 import Modal from '../components/ui/Modal.jsx';
 import FormularioNuevoGasto from '../components/gastos/FormularioNuevoGasto.jsx';
-import { obtenerGrupo } from '../api/grupos.js';
+import Input from '../components/ui/Input.jsx';
+import { obtenerGrupo, renombrarGrupo, regenerarCodigo, eliminarGrupo, quitarMiembro } from '../api/grupos.js';
 import { listarGastos } from '../api/gastos.js';
 import { useAuth } from '../context/useAuth.js';
 import { formatearMoneda, formatearFecha } from '../utils/formato.js';
@@ -14,7 +15,7 @@ import styles from './GrupoDetalle.module.css';
 
 export default function GrupoDetalle() {
   const { id } = useParams();
-  const { token } = useAuth();
+  const { token, usuario } = useAuth();
   const navigate = useNavigate();
 
   const [grupo, setGrupo] = useState(null);
@@ -27,6 +28,10 @@ export default function GrupoDetalle() {
   const [cargandoGastos, setCargandoGastos] = useState(true);
   const [errorGastos, setErrorGastos] = useState('');
   const [modalNuevoGasto, setModalNuevoGasto] = useState(false);
+
+  const [modalRenombrar, setModalRenombrar] = useState(false);
+  const [nombreNuevo, setNombreNuevo] = useState('');
+  const [errorAdmin, setErrorAdmin] = useState('');
 
   useEffect(() => {
     let cancelado = false;
@@ -75,6 +80,52 @@ export default function GrupoDetalle() {
         // Portapapeles bloqueado por el navegador (permisos, contexto no seguro, etc.):
         // el codigo sigue visible en pantalla, no hace falta romper la interaccion.
       });
+  }
+
+  const esCreador = grupo?.creado_por === usuario.id;
+
+  async function accionAdmin(accion) {
+    setErrorAdmin('');
+    try {
+      await accion();
+    } catch (err) {
+      setErrorAdmin(err.detalles?.nombre?.[0] ?? err.message);
+    }
+  }
+
+  function guardarNombre(e) {
+    e.preventDefault();
+    return accionAdmin(async () => {
+      const datos = await renombrarGrupo(token, id, { nombre: nombreNuevo });
+      setGrupo(datos.grupo);
+      setModalRenombrar(false);
+    });
+  }
+
+  function nuevoCodigo() {
+    if (!window.confirm('El codigo actual dejara de funcionar. ¿Generar uno nuevo?')) return;
+    return accionAdmin(async () => setGrupo((await regenerarCodigo(token, id)).grupo));
+  }
+
+  function borrarGrupo() {
+    if (!window.confirm('Se borraran el grupo y todos sus gastos y liquidaciones. No se puede deshacer. ¿Continuar?')) return;
+    return accionAdmin(async () => {
+      await eliminarGrupo(token, id);
+      navigate('/dashboard');
+    });
+  }
+
+  function sacarMiembro(miembro) {
+    const aviso =
+      miembro.id === usuario.id
+        ? '¿Seguro que quieres salir de este grupo?'
+        : `¿Expulsar a ${miembro.nombre} del grupo?`;
+    if (!window.confirm(aviso)) return;
+    return accionAdmin(async () => {
+      await quitarMiembro(token, id, miembro.id);
+      if (miembro.id === usuario.id) navigate('/dashboard');
+      else setMiembros((actuales) => actuales.filter((m) => m.id !== miembro.id));
+    });
   }
 
   function nombreDe(usuarioId) {
@@ -128,9 +179,35 @@ export default function GrupoDetalle() {
             <div key={miembro.id} className={styles.miembro}>
               <Avatar nombre={miembro.nombre} size={28} />
               <span>{miembro.nombre}</span>
+              {miembro.id === grupo.creado_por && <span className={styles.etiqueta}>Creador</span>}
+              {miembro.id !== grupo.creado_por && (esCreador || miembro.id === usuario.id) && (
+                <button type="button" className={styles.quitar} onClick={() => sacarMiembro(miembro)}>
+                  {miembro.id === usuario.id ? 'Salir' : 'Expulsar'}
+                </button>
+              )}
             </div>
           ))}
         </div>
+        {errorAdmin && <p className={styles.mensajeError}>{errorAdmin}</p>}
+        {esCreador && (
+          <div className={styles.accionesEncabezado}>
+            <Button
+              variant="secondary"
+              onClick={() => {
+                setNombreNuevo(grupo.nombre);
+                setModalRenombrar(true);
+              }}
+            >
+              Renombrar
+            </Button>
+            <Button variant="secondary" onClick={nuevoCodigo}>
+              Nuevo codigo
+            </Button>
+            <Button variant="danger" onClick={borrarGrupo}>
+              Eliminar grupo
+            </Button>
+          </div>
+        )}
       </section>
 
       <section className={styles.seccion}>
@@ -171,6 +248,15 @@ export default function GrupoDetalle() {
           </div>
         )}
       </section>
+
+      <Modal open={modalRenombrar} onClose={() => setModalRenombrar(false)} title="Renombrar grupo">
+        <form onSubmit={guardarNombre} noValidate>
+          <Input label="Nombre del grupo" value={nombreNuevo} onChange={(e) => setNombreNuevo(e.target.value)} error={errorAdmin} autoFocus required />
+          <Button type="submit" fullWidth>
+            Guardar
+          </Button>
+        </form>
+      </Modal>
 
       <Modal open={modalNuevoGasto} onClose={() => setModalNuevoGasto(false)} title="Nuevo gasto">
         <FormularioNuevoGasto

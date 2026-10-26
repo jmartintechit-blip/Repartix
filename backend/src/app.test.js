@@ -153,6 +153,68 @@ describe('grupos y control de acceso', () => {
   });
 });
 
+describe('gestion de grupos', () => {
+  async function grupoConDos() {
+    const ana = await nuevoUsuario('Ana');
+    const bruno = await nuevoUsuario('Bruno');
+    const { json } = await llamar('POST', '/api/grupos', { token: ana.token, cuerpo: { nombre: 'Piso' } });
+    const grupo = json.grupo;
+    await llamar('POST', '/api/grupos/unirse', { token: bruno.token, cuerpo: { codigo_invitacion: grupo.codigo_invitacion } });
+    return { ana, bruno, grupo };
+  }
+
+  it('solo el creador renombra, regenera el codigo y elimina; el codigo viejo deja de valer', async () => {
+    const { ana, bruno, grupo } = await grupoConDos();
+    const ruta = `/api/grupos/${grupo.id}`;
+
+    expect((await llamar('PATCH', ruta, { token: bruno.token, cuerpo: { nombre: 'Mio' } })).status).toBe(403);
+    expect((await llamar('POST', `${ruta}/codigo`, { token: bruno.token })).status).toBe(403);
+    expect((await llamar('DELETE', ruta, { token: bruno.token })).status).toBe(403);
+    expect((await llamar('PATCH', ruta, { token: ana.token, cuerpo: { nombre: '  ' } })).status).toBe(400);
+
+    const renombrado = await llamar('PATCH', ruta, { token: ana.token, cuerpo: { nombre: 'Piso nuevo' } });
+    expect(renombrado.json.grupo.nombre).toBe('Piso nuevo');
+
+    const nuevoCodigo = await llamar('POST', `${ruta}/codigo`, { token: ana.token });
+    expect(nuevoCodigo.json.grupo.codigo_invitacion).not.toBe(grupo.codigo_invitacion);
+    const viejo = await llamar('POST', '/api/grupos/unirse', {
+      token: (await nuevoUsuario('Carla')).token,
+      cuerpo: { codigo_invitacion: grupo.codigo_invitacion },
+    });
+    expect(viejo.status).toBe(404);
+
+    const borrado = await fetch(base + ruta, { method: 'DELETE', headers: { authorization: `Bearer ${ana.token}` } });
+    expect(borrado.status).toBe(204);
+    expect((await llamar('GET', ruta, { token: ana.token })).status).toBe(404);
+  });
+
+  it('un miembro sin actividad sale o es expulsado; el creador no puede salir', async () => {
+    const { ana, bruno, grupo } = await grupoConDos();
+    const miembro = (usuario) => `/api/grupos/${grupo.id}/miembros/${usuario.id}`;
+    const quitar = (ruta, token) => fetch(base + ruta, { method: 'DELETE', headers: { authorization: `Bearer ${token}` } });
+
+    expect((await llamar('DELETE', miembro(ana), { token: bruno.token })).status).toBe(403);
+    expect((await llamar('DELETE', miembro(ana), { token: ana.token })).status).toBe(409);
+    expect((await quitar(miembro(bruno), bruno.token)).status).toBe(204);
+    expect((await llamar('GET', `/api/grupos/${grupo.id}`, { token: bruno.token })).status).toBe(404);
+    expect((await llamar('DELETE', miembro(bruno), { token: ana.token })).status).toBe(404);
+  });
+
+  it('no se puede quitar a un miembro con gastos o partes asignadas', async () => {
+    const { ana, bruno, grupo } = await grupoConDos();
+    const gasto = await llamar('POST', `/api/grupos/${grupo.id}/gastos`, {
+      token: ana.token,
+      cuerpo: { descripcion: 'Cena', monto_total: 20, items: [{ nombre_item: 'Pizza', precio: 20 }] },
+    });
+    await llamar('POST', `/api/grupos/${grupo.id}/gastos/${gasto.json.gasto.id}/dividir-partes-iguales`, {
+      token: ana.token,
+      cuerpo: { usuario_ids: [bruno.id] },
+    });
+    const res = await llamar('DELETE', `/api/grupos/${grupo.id}/miembros/${bruno.id}`, { token: ana.token });
+    expect(res.status).toBe(409);
+  });
+});
+
 describe('gastos y liquidaciones', () => {
   it('flujo completo: gasto, reparto, balances, liquidacion y permisos de pago', async () => {
     const ana = await nuevoUsuario('Ana');

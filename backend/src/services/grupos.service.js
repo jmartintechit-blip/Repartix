@@ -40,7 +40,7 @@ export async function crearGrupo({ nombre, creadorId }) {
     const codigo = generarCodigo();
     try {
       const [{ id: grupoId }] = await db('grupos')
-        .insert({ nombre, codigo_invitacion: codigo, fecha_creacion: ahoraSql() })
+        .insert({ nombre, codigo_invitacion: codigo, fecha_creacion: ahoraSql(), creado_por: creadorId })
         .returning('id');
       await db('usuario_grupo').insert({ usuario_id: creadorId, grupo_id: grupoId, fecha_union: ahoraSql() });
       return obtenerGrupoPorId(grupoId);
@@ -74,4 +74,51 @@ export function obtenerMiembros(grupoId) {
     .where('ug.grupo_id', grupoId)
     .orderBy('ug.fecha_union', 'asc')
     .select('u.id', 'u.nombre', 'u.email', 'ug.fecha_union');
+}
+
+export async function renombrarGrupo(grupoId, nombre) {
+  await db('grupos').where({ id: grupoId }).update({ nombre });
+  return obtenerGrupoPorId(grupoId);
+}
+
+export async function regenerarCodigo(grupoId) {
+  for (let intento = 0; intento < MAX_INTENTOS; intento++) {
+    try {
+      await db('grupos').where({ id: grupoId }).update({ codigo_invitacion: generarCodigo() });
+      return obtenerGrupoPorId(grupoId);
+    } catch (err) {
+      if (esErrorDeDuplicado(err)) continue;
+      throw err;
+    }
+  }
+  throw new Error('No se pudo generar un codigo de invitacion unico, intentalo de nuevo');
+}
+
+// Un miembro con gastos pagados, partes asignadas o liquidaciones en el grupo
+// no puede salir: sus datos quedarian apuntando a alguien que ya no es miembro
+// y los balances dejarian de cuadrar.
+export async function tieneActividad(grupoId, usuarioId) {
+  const pagado = await db('gastos').where({ grupo_id: grupoId, pagado_por: usuarioId }).first();
+  if (pagado) return true;
+  const asignado = await db('item_asignacion as ia')
+    .join('items_gasto as i', 'i.id', 'ia.item_id')
+    .join('gastos as g', 'g.id', 'i.gasto_id')
+    .where({ 'g.grupo_id': grupoId, 'ia.usuario_id': usuarioId })
+    .first();
+  if (asignado) return true;
+  const liquidado = await db('liquidaciones')
+    .where({ grupo_id: grupoId })
+    .andWhere((q) => q.where({ de_usuario_id: usuarioId }).orWhere({ a_usuario_id: usuarioId }))
+    .first();
+  return Boolean(liquidado);
+}
+
+export function quitarMiembro(grupoId, usuarioId) {
+  return db('usuario_grupo').where({ grupo_id: grupoId, usuario_id: usuarioId }).delete();
+}
+
+// Gastos, articulos, asignaciones y liquidaciones se borran en cascada (FK).
+// shortcut: las fotos de tickets ya subidas a Cloudinary no se borran, limpiarlas si el uso real lo pide.
+export function eliminarGrupo(grupoId) {
+  return db('grupos').where({ id: grupoId }).delete();
 }
