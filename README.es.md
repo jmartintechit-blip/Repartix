@@ -30,7 +30,7 @@ Repartir la cuenta de un viaje o una cena suele acabar en una hoja de cálculo i
 - Añadir un gasto con sus artículos. Opcionalmente, subir la foto del ticket y dejar que Gemini extraiga los artículos y el total, editables antes de guardar.
 - Editar un gasto ya guardado (solo quien lo pagó): los artículos que se mantienen conservan quién los tomó.
 - Cada miembro marca los artículos que consumió, o el gasto se reparte a partes iguales con un clic.
-- Balance neto por persona, con impuestos y propina prorrateados entre los artículos.
+- Balance neto por persona, con impuestos y propina prorrateados entre los artículos. Impuestos, propina y fecha del gasto son campos aparte en el formulario.
 - Simplificación de deudas: si A debe a B y B debe a C, A paga directamente a C.
 - Historial de gastos con la foto del ticket enlazada.
 - Marcar una liquidación como pagada. Solo pueden hacerlo las dos personas implicadas, y la app lo recuerda, así que un gasto posterior nunca pide un pago ya hecho.

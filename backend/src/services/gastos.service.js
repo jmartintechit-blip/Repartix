@@ -41,7 +41,7 @@ export async function obtenerGastoCompleto(gastoId) {
   return { ...gasto, items };
 }
 
-export async function crearGasto({ grupoId, pagadoPor, descripcion, montoTotal, fecha, items, imagenUrl }) {
+export async function crearGasto({ grupoId, pagadoPor, descripcion, montoTotal, impuestos, propina, fecha, items, imagenUrl }) {
   const gastoId = await db.transaction(async (trx) => {
     const [{ id }] = await trx('gastos')
       .insert({
@@ -49,6 +49,8 @@ export async function crearGasto({ grupoId, pagadoPor, descripcion, montoTotal, 
         pagado_por: pagadoPor,
         descripcion,
         monto_total: montoTotal,
+        impuestos: impuestos ?? 0,
+        propina: propina ?? 0,
         imagen_url: imagenUrl ?? null,
         fecha: fecha ?? ahoraSql(),
       })
@@ -71,11 +73,18 @@ export async function crearGasto({ grupoId, pagadoPor, descripcion, montoTotal, 
   return obtenerGastoCompleto(gastoId);
 }
 
-export async function editarGasto(gastoId, { pagadoPor, descripcion, montoTotal, fecha, items }) {
+export async function editarGasto(gastoId, { pagadoPor, descripcion, montoTotal, impuestos, propina, fecha, items }) {
   await db.transaction(async (trx) => {
     await trx('gastos')
       .where({ id: gastoId })
-      .update({ pagado_por: pagadoPor, descripcion, monto_total: montoTotal, ...(fecha ? { fecha } : {}) });
+      .update({
+        pagado_por: pagadoPor,
+        descripcion,
+        monto_total: montoTotal,
+        impuestos: impuestos ?? 0,
+        propina: propina ?? 0,
+        ...(fecha ? { fecha } : {}),
+      });
 
     const existentes = (await trx('items_gasto').where({ gasto_id: gastoId }).select('id')).map((i) => i.id);
     const nuevos = items.length > 0 ? items : [{ nombre_item: 'Total', precio: montoTotal, cantidad: 1 }];

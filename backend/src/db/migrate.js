@@ -82,6 +82,19 @@ async function crearBaseSchema() {
 export async function migrate() {
   await crearBaseSchema();
   await anadirCreadorAGrupos();
+  await anadirImpuestosYPropina();
+}
+
+// v0.2: impuestos y propina se guardan aparte. Los gastos anteriores quedan en 0 y
+// su diferencia con la suma de los items sigue prorrateandose igual (monto_total manda).
+async function anadirImpuestosYPropina() {
+  for (const columna of ['impuestos', 'propina']) {
+    if (!(await db.schema.hasColumn('gastos', columna))) {
+      await db.schema.alterTable('gastos', (table) => {
+        table.float(columna).notNullable().defaultTo(0);
+      });
+    }
+  }
 }
 
 // v0.2: cada grupo tiene un creador que lo administra. En grupos anteriores

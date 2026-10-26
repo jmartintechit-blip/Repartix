@@ -300,6 +300,24 @@ describe('editar un gasto', () => {
     expect(items[0].asignados.map((a) => a.id)).toEqual([bruno.id]);
     expect(items[1].asignados).toEqual([]);
   });
+
+  it('guarda impuestos, propina y fecha, y rechaza que items + impuestos + propina superen el total', async () => {
+    const ana = await nuevoUsuario('Ana');
+    const { json } = await llamar('POST', '/api/grupos', { token: ana.token, cuerpo: { nombre: 'Extras' } });
+    const ruta = `/api/grupos/${json.grupo.id}/gastos`;
+    const base = { descripcion: 'Cena', monto_total: 33, items: [{ nombre_item: 'Menu', precio: 28 }], impuestos: 2.8, propina: 2.2 };
+
+    const creado = await llamar('POST', ruta, { token: ana.token, cuerpo: { ...base, fecha: '2026-03-01' } });
+    expect(creado.status).toBe(201);
+    expect(creado.json.gasto).toMatchObject({ impuestos: 2.8, propina: 2.2, fecha: '2026-03-01' });
+
+    expect((await llamar('POST', ruta, { token: ana.token, cuerpo: { ...base, propina: 9 } })).status).toBe(400);
+    expect((await llamar('POST', ruta, { token: ana.token, cuerpo: { ...base, impuestos: -1 } })).status).toBe(400);
+    expect((await llamar('POST', ruta, { token: ana.token, cuerpo: { ...base, fecha: 'ayer' } })).status).toBe(400);
+
+    const editado = await llamar('PUT', `${ruta}/${creado.json.gasto.id}`, { token: ana.token, cuerpo: { ...base, propina: 0, monto_total: 30.8 } });
+    expect(editado.json.gasto).toMatchObject({ impuestos: 2.8, propina: 0 });
+  });
 });
 
 describe('cuenta', () => {

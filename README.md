@@ -30,7 +30,7 @@ Splitting the bill after a trip or a dinner usually ends in an improvised spread
 - Add an expense with its line items. Optionally upload a receipt photo and let Gemini extract the items and total, editable before saving.
 - Edit an expense after saving it (only whoever paid): items that are kept keep who had them.
 - Each member marks the items they had, or an expense is split equally in one click.
-- Net balance per person, with tax and tip prorated across the items.
+- Net balance per person, with tax and tip prorated across the items. Tax, tip and the expense date are separate fields in the form.
 - Debt simplification: if A owes B and B owes C, A pays C directly.
 - Expense history with the receipt photo linked.
 - Mark a settlement as paid. Only the two people involved can do it, and the app remembers it, so a later expense never asks for a payment already made.

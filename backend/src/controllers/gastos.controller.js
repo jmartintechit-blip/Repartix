@@ -9,8 +9,9 @@ import * as gruposService from '../services/grupos.service.js';
 import * as imageStorage from '../services/imageStorage.js';
 import * as receiptParser from '../services/receiptParser.js';
 
-function sumaItems(items) {
-  return items.reduce((acc, item) => acc + item.precio, 0);
+// Items + impuestos + propina no pueden pasar del total (el margen cubre el redondeo a centimos)
+function superaElTotal({ items = [], impuestos = 0, propina = 0, monto_total }) {
+  return items.reduce((acc, item) => acc + item.precio, impuestos + propina) > monto_total + 0.01;
 }
 
 // esMiembro ahora es async: `.every(cb)` con un callback async siempre daria
@@ -26,10 +27,10 @@ export async function crear(req, res) {
   if (!parsed.success) {
     return res.status(400).json({ error: 'Datos invalidos', detalles: parsed.error.flatten().fieldErrors });
   }
-  const { descripcion, monto_total, pagado_por, fecha, items, imagen_url } = parsed.data;
+  const { descripcion, monto_total, pagado_por, fecha, items, imagen_url, impuestos, propina } = parsed.data;
 
-  if (items && items.length > 0 && sumaItems(items) > monto_total + 0.01) {
-    return res.status(400).json({ error: 'La suma de los items no puede superar el monto total del gasto' });
+  if (superaElTotal(parsed.data)) {
+    return res.status(400).json({ error: 'Items, impuestos y propina no pueden superar el monto total del gasto' });
   }
 
   const pagadoPorId = pagado_por ?? req.usuario.id;
@@ -42,6 +43,8 @@ export async function crear(req, res) {
     pagadoPor: pagadoPorId,
     descripcion,
     montoTotal: monto_total,
+    impuestos,
+    propina,
     fecha,
     items,
     imagenUrl: imagen_url,
@@ -118,10 +121,10 @@ export async function editar(req, res) {
   if (!parsed.success) {
     return res.status(400).json({ error: 'Datos invalidos', detalles: parsed.error.flatten().fieldErrors });
   }
-  const { descripcion, monto_total, pagado_por, fecha, items } = parsed.data;
+  const { descripcion, monto_total, pagado_por, fecha, items, impuestos, propina } = parsed.data;
 
-  if (sumaItems(items) > monto_total + 0.01) {
-    return res.status(400).json({ error: 'La suma de los items no puede superar el monto total del gasto' });
+  if (superaElTotal(parsed.data)) {
+    return res.status(400).json({ error: 'Items, impuestos y propina no pueden superar el monto total del gasto' });
   }
   const idsPropios = new Set((await gastosService.obtenerItemsDeGasto(gasto.id)).map((i) => i.id));
   if (items.some((i) => i.id && !idsPropios.has(i.id))) {
@@ -137,6 +140,8 @@ export async function editar(req, res) {
     pagadoPor: pagadoPorId,
     descripcion,
     montoTotal: monto_total,
+    impuestos,
+    propina,
     fecha,
     items,
   });

@@ -10,8 +10,14 @@ const itemSchema = z.object({
 export const crearGastoSchema = z.object({
   descripcion: z.string().trim().min(1, 'La descripcion es obligatoria').max(200, 'La descripcion es demasiado larga'),
   monto_total: z.number().positive('El monto total debe ser mayor que 0'),
+  impuestos: z.number().min(0, 'Los impuestos no pueden ser negativos').optional(),
+  propina: z.number().min(0, 'La propina no puede ser negativa').optional(),
   pagado_por: z.number().int().positive().optional(),
-  fecha: z.string().trim().min(1).optional(),
+  fecha: z
+    .string()
+    .trim()
+    .regex(/^\d{4}-\d{2}-\d{2}( \d{2}:\d{2}:\d{2})?$/, 'La fecha debe ser AAAA-MM-DD')
+    .optional(),
   imagen_url: z.string().trim().url('URL de imagen invalida').optional(),
   items: z.array(itemSchema).max(200, 'Demasiados items en un solo gasto').optional(),
 });

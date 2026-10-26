@@ -130,6 +130,14 @@ export default function GastoDetalle() {
             <p className={styles.meta}>
               {formatearMoneda(gasto.monto_total)} · Pagado por {pagador?.nombre ?? '—'} · {formatearFecha(gasto.fecha)}
             </p>
+            {(gasto.impuestos > 0 || gasto.propina > 0) && (
+              <p className={styles.meta}>
+                Incluye
+                {gasto.impuestos > 0 && ` ${formatearMoneda(gasto.impuestos)} de impuestos`}
+                {gasto.impuestos > 0 && gasto.propina > 0 && ' y'}
+                {gasto.propina > 0 && ` ${formatearMoneda(gasto.propina)} de propina`}
+              </p>
+            )}
           </div>
         </div>
         {esPagador && (
