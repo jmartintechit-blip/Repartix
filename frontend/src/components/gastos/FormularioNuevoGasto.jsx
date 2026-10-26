@@ -1,18 +1,21 @@
 import { useState } from 'react';
 import Input from '../ui/Input.jsx';
 import Button from '../ui/Button.jsx';
-import { crearGasto, analizarTicket } from '../../api/gastos.js';
+import { crearGasto, editarGasto, analizarTicket } from '../../api/gastos.js';
 import { useAuth } from '../../context/useAuth.js';
 import styles from './FormularioNuevoGasto.module.css';
 
-export default function FormularioNuevoGasto({ grupoId, miembros, onCreado }) {
+// Sin `gasto` crea uno nuevo; con `gasto` edita ese (los items con id conservan sus asignaciones).
+export default function FormularioNuevoGasto({ grupoId, miembros, gasto, onGuardado }) {
   const { token, usuario } = useAuth();
 
-  const [descripcion, setDescripcion] = useState('');
-  const [montoTotal, setMontoTotal] = useState('');
-  const [pagadoPor, setPagadoPor] = useState(usuario.id);
-  const [items, setItems] = useState([]);
-  const [imagenUrl, setImagenUrl] = useState(null);
+  const [descripcion, setDescripcion] = useState(gasto?.descripcion ?? '');
+  const [montoTotal, setMontoTotal] = useState(gasto ? String(gasto.monto_total) : '');
+  const [pagadoPor, setPagadoPor] = useState(gasto?.pagado_por ?? usuario.id);
+  const [items, setItems] = useState(
+    () => gasto?.items.map((i) => ({ id: i.id, nombre_item: i.nombre_item, precio: String(i.precio) })) ?? []
+  );
+  const [imagenUrl, setImagenUrl] = useState(gasto?.imagen_url ?? null);
   const [error, setError] = useState('');
   const [enviando, setEnviando] = useState(false);
   const [analizando, setAnalizando] = useState(false);
@@ -60,16 +63,17 @@ export default function FormularioNuevoGasto({ grupoId, miembros, onCreado }) {
     try {
       const itemsValidos = items
         .filter((item) => item.nombre_item.trim() && item.precio !== '')
-        .map((item) => ({ nombre_item: item.nombre_item.trim(), precio: Number(item.precio) }));
+        .map((item) => ({ id: item.id, nombre_item: item.nombre_item.trim(), precio: Number(item.precio) }));
 
-      const { gasto } = await crearGasto(token, grupoId, {
-        descripcion,
-        monto_total: Number(montoTotal),
-        pagado_por: Number(pagadoPor),
-        items: itemsValidos.length > 0 ? itemsValidos : undefined,
-        imagen_url: imagenUrl ?? undefined,
-      });
-      onCreado(gasto);
+      const datos = { descripcion, monto_total: Number(montoTotal), pagado_por: Number(pagadoPor) };
+      const { gasto: guardado } = gasto
+        ? await editarGasto(token, grupoId, gasto.id, { ...datos, items: itemsValidos })
+        : await crearGasto(token, grupoId, {
+            ...datos,
+            items: itemsValidos.length > 0 ? itemsValidos : undefined,
+            imagen_url: imagenUrl ?? undefined,
+          });
+      onGuardado(guardado);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -79,7 +83,7 @@ export default function FormularioNuevoGasto({ grupoId, miembros, onCreado }) {
 
   return (
     <form className={styles.form} onSubmit={handleSubmit} noValidate>
-      <div className={styles.subidaTicket}>
+      {!gasto && <div className={styles.subidaTicket}>
         <label className={styles.botonSubir}>
           {analizando ? 'Leyendo el ticket…' : '📷 Escanear ticket con IA'}
           <input
@@ -94,7 +98,7 @@ export default function FormularioNuevoGasto({ grupoId, miembros, onCreado }) {
           <img src={imagenUrl} alt="Foto del ticket" className={styles.previewImagen} />
         )}
         {avisoIA && <p className={styles.avisoIA}>{avisoIA}</p>}
-      </div>
+      </div>}
 
       <Input
         label="Descripcion"
@@ -171,7 +175,7 @@ export default function FormularioNuevoGasto({ grupoId, miembros, onCreado }) {
 
       {error && <p className={styles.error}>{error}</p>}
       <Button type="submit" fullWidth loading={enviando}>
-        Guardar gasto
+        {gasto ? 'Guardar cambios' : 'Guardar gasto'}
       </Button>
     </form>
   );

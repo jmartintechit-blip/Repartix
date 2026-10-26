@@ -265,6 +265,43 @@ describe('gastos y liquidaciones', () => {
   });
 });
 
+describe('editar un gasto', () => {
+  it('solo quien lo pago; conserva las asignaciones de los items con id y valida los datos', async () => {
+    const ana = await nuevoUsuario('Ana');
+    const bruno = await nuevoUsuario('Bruno');
+    const { json } = await llamar('POST', '/api/grupos', { token: ana.token, cuerpo: { nombre: 'Edicion' } });
+    const id = json.grupo.id;
+    await llamar('POST', '/api/grupos/unirse', { token: bruno.token, cuerpo: { codigo_invitacion: json.grupo.codigo_invitacion } });
+
+    const creado = await llamar('POST', `/api/grupos/${id}/gastos`, {
+      token: ana.token,
+      cuerpo: { descripcion: 'Cena', monto_total: 30, items: [{ nombre_item: 'Pizza', precio: 20 }, { nombre_item: 'Agua', precio: 10 }] },
+    });
+    const gasto = creado.json.gasto;
+    const [pizza, agua] = gasto.items;
+    await llamar('PUT', `/api/grupos/${id}/gastos/${gasto.id}/items/${pizza.id}/asignaciones`, {
+      token: ana.token,
+      cuerpo: { usuario_ids: [bruno.id] },
+    });
+    const ruta = `/api/grupos/${id}/gastos/${gasto.id}`;
+    const cambio = { descripcion: 'Cena corregida', monto_total: 35, items: [{ id: pizza.id, nombre_item: 'Pizza', precio: 25 }, { nombre_item: 'Postre', precio: 10 }] };
+
+    expect((await llamar('PUT', ruta, { token: bruno.token, cuerpo: cambio })).status).toBe(403);
+    expect((await llamar('PUT', ruta, { token: ana.token, cuerpo: { ...cambio, monto_total: 5 } })).status).toBe(400);
+    expect((await llamar('PUT', ruta, { token: ana.token, cuerpo: { ...cambio, items: [{ id: 99999, nombre_item: 'X', precio: 1 }] } })).status).toBe(400);
+
+    const ok = await llamar('PUT', ruta, { token: ana.token, cuerpo: cambio });
+    expect(ok.status).toBe(200);
+    expect(ok.json.gasto).toMatchObject({ descripcion: 'Cena corregida', monto_total: 35 });
+    const items = ok.json.gasto.items;
+    expect(items.map((i) => i.nombre_item)).toEqual(['Pizza', 'Postre']);
+    expect(items.find((i) => i.id === agua.id)).toBeUndefined();
+    expect(items[0].precio).toBe(25);
+    expect(items[0].asignados.map((a) => a.id)).toEqual([bruno.id]);
+    expect(items[1].asignados).toEqual([]);
+  });
+});
+
 describe('cabeceras de seguridad', () => {
   it('la API envia cabeceras de helmet', async () => {
     const res = await fetch(`${base}/api/health`);

@@ -262,7 +262,7 @@ export default function GrupoDetalle() {
         <FormularioNuevoGasto
           grupoId={id}
           miembros={miembros}
-          onCreado={(gasto) => {
+          onGuardado={(gasto) => {
             setModalNuevoGasto(false);
             navigate(`/grupos/${id}/gastos/${gasto.id}`);
           }}

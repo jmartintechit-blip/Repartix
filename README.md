@@ -27,6 +27,7 @@ Splitting the bill after a trip or a dinner usually ends in an improvised spread
 - Create a group, or join one with a 6-character invite code.
 - Manage a group: the creator can rename it, replace the invite code, remove a member or delete it; members can leave. Someone with expenses, assigned shares or settlements in the group cannot be removed, so balances always add up.
 - Add an expense with its line items. Optionally upload a receipt photo and let Gemini extract the items and total, editable before saving.
+- Edit an expense after saving it (only whoever paid): items that are kept keep who had them.
 - Each member marks the items they had, or an expense is split equally in one click.
 - Net balance per person, with tax and tip prorated across the items.
 - Debt simplification: if A owes B and B owes C, A pays C directly.

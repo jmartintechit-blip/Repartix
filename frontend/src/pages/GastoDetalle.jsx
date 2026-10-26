@@ -4,6 +4,8 @@ import AppShell from '../components/layout/AppShell.jsx';
 import Card from '../components/ui/Card.jsx';
 import Button from '../components/ui/Button.jsx';
 import Avatar from '../components/ui/Avatar.jsx';
+import Modal from '../components/ui/Modal.jsx';
+import FormularioNuevoGasto from '../components/gastos/FormularioNuevoGasto.jsx';
 import { obtenerGasto, eliminarGasto, asignarItem, dividirPartesIguales } from '../api/gastos.js';
 import { obtenerGrupo } from '../api/grupos.js';
 import { useAuth } from '../context/useAuth.js';
@@ -20,6 +22,7 @@ export default function GastoDetalle() {
   const [cargando, setCargando] = useState(true);
   const [error, setError] = useState('');
   const [actualizando, setActualizando] = useState(false);
+  const [modalEditar, setModalEditar] = useState(false);
 
   const cargar = useCallback(
     () =>
@@ -130,9 +133,14 @@ export default function GastoDetalle() {
           </div>
         </div>
         {esPagador && (
-          <Button variant="danger" onClick={handleEliminar}>
-            Eliminar gasto
-          </Button>
+          <div className={styles.accionesGasto}>
+            <Button variant="secondary" onClick={() => setModalEditar(true)}>
+              Editar gasto
+            </Button>
+            <Button variant="danger" onClick={handleEliminar}>
+              Eliminar gasto
+            </Button>
+          </div>
         )}
       </div>
 
@@ -174,6 +182,18 @@ export default function GastoDetalle() {
           </Card>
         ))}
       </div>
+
+      <Modal open={modalEditar} onClose={() => setModalEditar(false)} title="Editar gasto">
+        <FormularioNuevoGasto
+          grupoId={grupoId}
+          miembros={miembros}
+          gasto={gasto}
+          onGuardado={() => {
+            setModalEditar(false);
+            cargar().catch((err) => setError(err.message));
+          }}
+        />
+      </Modal>
     </AppShell>
   );
 }

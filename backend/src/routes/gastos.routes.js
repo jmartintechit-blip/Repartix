@@ -11,6 +11,7 @@ router.post('/analizar-ticket', subidaImagen.single('imagen'), validarContenidoI
 router.post('/', gastosController.crear);
 router.get('/', gastosController.listar);
 router.get('/:gastoId', gastosController.detalle);
+router.put('/:gastoId', gastosController.editar);
 router.delete('/:gastoId', gastosController.eliminar);
 router.put('/:gastoId/items/:itemId/asignaciones', gastosController.asignarItem);
 router.post('/:gastoId/dividir-partes-iguales', gastosController.dividirPartesIguales);

@@ -27,6 +27,7 @@ Repartir la cuenta de un viaje o una cena suele acabar en una hoja de cálculo i
 - Crear un grupo, o unirse a uno con un código de invitación de 6 caracteres.
 - Gestionar un grupo: quien lo creó puede renombrarlo, cambiar el código de invitación, quitar a un miembro o eliminarlo; los miembros pueden salir. Quien tenga gastos, partes asignadas o liquidaciones en el grupo no se puede quitar, así que los balances siempre cuadran.
 - Añadir un gasto con sus artículos. Opcionalmente, subir la foto del ticket y dejar que Gemini extraiga los artículos y el total, editables antes de guardar.
+- Editar un gasto ya guardado (solo quien lo pagó): los artículos que se mantienen conservan quién los tomó.
 - Cada miembro marca los artículos que consumió, o el gasto se reparte a partes iguales con un clic.
 - Balance neto por persona, con impuestos y propina prorrateados entre los artículos.
 - Simplificación de deudas: si A debe a B y B debe a C, A paga directamente a C.

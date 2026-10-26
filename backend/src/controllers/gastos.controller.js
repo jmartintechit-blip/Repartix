@@ -1,5 +1,6 @@
 import {
   crearGastoSchema,
+  editarGastoSchema,
   asignarItemSchema,
   dividirPartesIgualesSchema,
 } from '../validators/gastos.validators.js';
@@ -104,6 +105,42 @@ export async function detalle(req, res) {
   const gasto = await obtenerGastoDelGrupoValidado(req, res);
   if (!gasto) return;
   res.json({ gasto: await gastosService.obtenerGastoCompleto(gasto.id) });
+}
+
+export async function editar(req, res) {
+  const gasto = await obtenerGastoDelGrupoValidado(req, res);
+  if (!gasto) return;
+  if (gasto.pagado_por !== req.usuario.id) {
+    return res.status(403).json({ error: 'Solo quien pago el gasto puede editarlo' });
+  }
+
+  const parsed = editarGastoSchema.safeParse(req.body);
+  if (!parsed.success) {
+    return res.status(400).json({ error: 'Datos invalidos', detalles: parsed.error.flatten().fieldErrors });
+  }
+  const { descripcion, monto_total, pagado_por, fecha, items } = parsed.data;
+
+  if (sumaItems(items) > monto_total + 0.01) {
+    return res.status(400).json({ error: 'La suma de los items no puede superar el monto total del gasto' });
+  }
+  const idsPropios = new Set((await gastosService.obtenerItemsDeGasto(gasto.id)).map((i) => i.id));
+  if (items.some((i) => i.id && !idsPropios.has(i.id))) {
+    return res.status(400).json({ error: 'Alguno de los items no pertenece a este gasto' });
+  }
+
+  const pagadoPorId = pagado_por ?? gasto.pagado_por;
+  if (!(await gruposService.esMiembro(req.grupoId, pagadoPorId))) {
+    return res.status(400).json({ error: 'El usuario que paga debe ser miembro del grupo' });
+  }
+
+  const actualizado = await gastosService.editarGasto(gasto.id, {
+    pagadoPor: pagadoPorId,
+    descripcion,
+    montoTotal: monto_total,
+    fecha,
+    items,
+  });
+  res.json({ gasto: actualizado });
 }
 
 export async function eliminar(req, res) {

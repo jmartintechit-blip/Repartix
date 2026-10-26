@@ -71,6 +71,33 @@ export async function crearGasto({ grupoId, pagadoPor, descripcion, montoTotal, 
   return obtenerGastoCompleto(gastoId);
 }
 
+export async function editarGasto(gastoId, { pagadoPor, descripcion, montoTotal, fecha, items }) {
+  await db.transaction(async (trx) => {
+    await trx('gastos')
+      .where({ id: gastoId })
+      .update({ pagado_por: pagadoPor, descripcion, monto_total: montoTotal, ...(fecha ? { fecha } : {}) });
+
+    const existentes = (await trx('items_gasto').where({ gasto_id: gastoId }).select('id')).map((i) => i.id);
+    const nuevos = items.length > 0 ? items : [{ nombre_item: 'Total', precio: montoTotal, cantidad: 1 }];
+    const conservados = new Set();
+
+    for (const item of nuevos) {
+      const datos = { nombre_item: item.nombre_item, precio: item.precio, cantidad: item.cantidad ?? 1 };
+      if (item.id && existentes.includes(item.id)) {
+        await trx('items_gasto').where({ id: item.id }).update(datos);
+        conservados.add(item.id);
+      } else {
+        await trx('items_gasto').insert({ gasto_id: gastoId, ...datos });
+      }
+    }
+
+    const sobran = existentes.filter((id) => !conservados.has(id));
+    if (sobran.length > 0) await trx('items_gasto').whereIn('id', sobran).del();
+  });
+
+  return obtenerGastoCompleto(gastoId);
+}
+
 export function eliminarGasto(gastoId) {
   // ON DELETE CASCADE se encarga de items_gasto e item_asignacion
   return db('gastos').where({ id: gastoId }).del();

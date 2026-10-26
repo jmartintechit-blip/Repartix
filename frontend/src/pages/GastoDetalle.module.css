@@ -116,3 +116,9 @@
   color: var(--color-warning);
   font-weight: 600;
 }
+
+.accionesGasto {
+  display: flex;
+  gap: var(--space-3);
+  flex-wrap: wrap;
+}
