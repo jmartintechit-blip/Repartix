@@ -23,7 +23,9 @@ export default function AppShell({ children }) {
           </Link>
           {usuario && (
             <nav className={styles.nav}>
-              <Avatar nombre={usuario.nombre} size={32} />
+              <Link to="/cuenta" className={styles.cuenta} aria-label="Mi cuenta">
+                <Avatar nombre={usuario.nombre} size={32} />
+              </Link>
               <Button variant="ghost" onClick={handleLogout}>
                 Cerrar sesion
               </Button>

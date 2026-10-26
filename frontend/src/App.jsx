@@ -9,6 +9,7 @@ import Dashboard from './pages/Dashboard.jsx';
 import GrupoDetalle from './pages/GrupoDetalle.jsx';
 import GastoDetalle from './pages/GastoDetalle.jsx';
 import Liquidaciones from './pages/Liquidaciones.jsx';
+import Cuenta from './pages/Cuenta.jsx';
 
 // Remonta la pagina al cambiar de grupo o gasto: asi el estado de carga vuelve a empezar
 // sin tener que reiniciarlo dentro de un efecto.
@@ -73,6 +74,14 @@ export default function App() {
                 <PorRuta>
                   <Liquidaciones />
                 </PorRuta>
+              </RutaProtegida>
+            }
+          />
+          <Route
+            path="/cuenta"
+            element={
+              <RutaProtegida>
+                <Cuenta />
               </RutaProtegida>
             }
           />

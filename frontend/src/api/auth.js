@@ -11,3 +11,15 @@ export function iniciarSesion({ email, password }) {
 export function obtenerPerfil(token) {
   return apiFetch('/auth/me', { token });
 }
+
+export function editarPerfil(token, { nombre }) {
+  return apiFetch('/auth/me', { method: 'PATCH', token, body: { nombre } });
+}
+
+export function cambiarPassword(token, { password_actual, password_nueva }) {
+  return apiFetch('/auth/me/password', { method: 'PUT', token, body: { password_actual, password_nueva } });
+}
+
+export function eliminarCuenta(token, { password }) {
+  return apiFetch('/auth/me', { method: 'DELETE', token, body: { password } });
+}

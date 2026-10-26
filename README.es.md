@@ -24,6 +24,7 @@ Repartir la cuenta de un viaje o una cena suele acabar en una hoja de cálculo i
 ## Qué hace
 
 - Registro e inicio de sesión, con contraseñas cifradas y sesiones JWT.
+- Página de cuenta: cambiar el nombre o la contraseña, o eliminar la cuenta. Al eliminarla se borran tu nombre y tu email; si aún tienes gastos, partes o liquidaciones en un grupo, la cuenta queda anonimizada («Usuario eliminado») para que los balances de los demás sigan siendo correctos. El token de una cuenta eliminada deja de funcionar al instante.
 - Crear un grupo, o unirse a uno con un código de invitación de 6 caracteres.
 - Gestionar un grupo: quien lo creó puede renombrarlo, cambiar el código de invitación, quitar a un miembro o eliminarlo; los miembros pueden salir. Quien tenga gastos, partes asignadas o liquidaciones en el grupo no se puede quitar, así que los balances siempre cuadran.
 - Añadir un gasto con sus artículos. Opcionalmente, subir la foto del ticket y dejar que Gemini extraiga los artículos y el total, editables antes de guardar.

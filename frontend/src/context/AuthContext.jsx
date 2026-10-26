@@ -65,6 +65,7 @@ export function AuthProvider({ children }) {
     login,
     registro,
     logout,
+    actualizarUsuario: setUsuario,
   };
 
   return <AuthContext.Provider value={valor}>{children}</AuthContext.Provider>;

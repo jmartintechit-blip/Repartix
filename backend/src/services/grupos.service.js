@@ -97,16 +97,16 @@ export async function regenerarCodigo(grupoId) {
 // Un miembro con gastos pagados, partes asignadas o liquidaciones en el grupo
 // no puede salir: sus datos quedarian apuntando a alguien que ya no es miembro
 // y los balances dejarian de cuadrar.
-export async function tieneActividad(grupoId, usuarioId) {
-  const pagado = await db('gastos').where({ grupo_id: grupoId, pagado_por: usuarioId }).first();
+export async function tieneActividad(grupoId, usuarioId, conn = db) {
+  const pagado = await conn('gastos').where({ grupo_id: grupoId, pagado_por: usuarioId }).first();
   if (pagado) return true;
-  const asignado = await db('item_asignacion as ia')
+  const asignado = await conn('item_asignacion as ia')
     .join('items_gasto as i', 'i.id', 'ia.item_id')
     .join('gastos as g', 'g.id', 'i.gasto_id')
     .where({ 'g.grupo_id': grupoId, 'ia.usuario_id': usuarioId })
     .first();
   if (asignado) return true;
-  const liquidado = await db('liquidaciones')
+  const liquidado = await conn('liquidaciones')
     .where({ grupo_id: grupoId })
     .andWhere((q) => q.where({ de_usuario_id: usuarioId }).orWhere({ a_usuario_id: usuarioId }))
     .first();

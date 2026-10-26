@@ -302,6 +302,75 @@ describe('editar un gasto', () => {
   });
 });
 
+describe('cuenta', () => {
+  it('cambia el nombre, y la contraseña solo con la actual correcta', async () => {
+    const ana = await nuevoUsuario('Ana');
+    const nombre = await llamar('PATCH', '/api/auth/me', { token: ana.token, cuerpo: { nombre: 'Ana Maria' } });
+    expect(nombre.json.usuario.nombre).toBe('Ana Maria');
+    expect((await llamar('PATCH', '/api/auth/me', { token: ana.token, cuerpo: { nombre: ' ' } })).status).toBe(400);
+
+    const cuerpo = { password_actual: 'password123', password_nueva: 'otra-clave-123' };
+    const mal = await llamar('PUT', '/api/auth/me/password', { token: ana.token, cuerpo: { ...cuerpo, password_actual: 'no-es-esta' } });
+    expect(mal.status).toBe(401);
+    expect((await llamar('PUT', '/api/auth/me/password', { token: ana.token, cuerpo: { ...cuerpo, password_nueva: 'corta' } })).status).toBe(400);
+    const res = await fetch(base + '/api/auth/me/password', {
+      method: 'PUT',
+      headers: { 'content-type': 'application/json', authorization: `Bearer ${ana.token}` },
+      body: JSON.stringify(cuerpo),
+    });
+    expect(res.status).toBe(204);
+    const login = await llamar('POST', '/api/auth/login', { cuerpo: { email: ana.email, password: 'otra-clave-123' } });
+    expect(login.status).toBe(200);
+  });
+
+  async function eliminar(usuario, password) {
+    const res = await fetch(base + '/api/auth/me', {
+      method: 'DELETE',
+      headers: { 'content-type': 'application/json', authorization: `Bearer ${usuario.token}` },
+      body: JSON.stringify({ password }),
+    });
+    return res.status;
+  }
+
+  it('eliminar la cuenta pide la contraseña, borra grupos propios y anonimiza si hay gastos', async () => {
+    const ana = await nuevoUsuario('Ana');
+    const bruno = await nuevoUsuario('Bruno');
+    const solo = await llamar('POST', '/api/grupos', { token: ana.token, cuerpo: { nombre: 'Solo Ana' } });
+    const compartido = await llamar('POST', '/api/grupos', { token: ana.token, cuerpo: { nombre: 'Compartido' } });
+    const idC = compartido.json.grupo.id;
+    await llamar('POST', '/api/grupos/unirse', { token: bruno.token, cuerpo: { codigo_invitacion: compartido.json.grupo.codigo_invitacion } });
+    await llamar('POST', `/api/grupos/${idC}/gastos`, { token: ana.token, cuerpo: { descripcion: 'Cena', monto_total: 20 } });
+
+    expect(await eliminar(ana, 'no-es-esta')).toBe(401);
+    expect(await eliminar(ana, 'password123')).toBe(204);
+
+    // el token deja de valer y el email ya no sirve para entrar
+    expect((await llamar('GET', '/api/auth/me', { token: ana.token })).status).toBe(401);
+    expect((await llamar('POST', '/api/auth/login', { cuerpo: { email: ana.email, password: 'password123' } })).status).toBe(401);
+
+    // grupo solo de Ana: borrado. Compartido: sigue, con Bruno de creador y Ana anonimizada
+    expect((await authService.obtenerUsuarioPorId(ana.id)).nombre).toBe('Usuario eliminado');
+    const detalle = await llamar('GET', `/api/grupos/${idC}`, { token: bruno.token });
+    expect(detalle.json.grupo.creado_por).toBe(bruno.id);
+    expect(JSON.stringify(detalle.json.miembros)).not.toContain(ana.email);
+    const gastos = await llamar('GET', `/api/grupos/${idC}/gastos`, { token: bruno.token });
+    expect(gastos.json.gastos).toHaveLength(1);
+    expect(solo.json.grupo.id).not.toBe(idC);
+    expect(await (await import('./db/connection.js')).db('grupos').where({ id: solo.json.grupo.id }).first()).toBeUndefined();
+  });
+
+  it('una cuenta sin actividad se borra del todo', async () => {
+    const carla = await nuevoUsuario('Carla');
+    const luis = await nuevoUsuario('Luis');
+    const g = await llamar('POST', '/api/grupos', { token: luis.token, cuerpo: { nombre: 'Luis y Carla' } });
+    await llamar('POST', '/api/grupos/unirse', { token: carla.token, cuerpo: { codigo_invitacion: g.json.grupo.codigo_invitacion } });
+    expect(await eliminar(carla, 'password123')).toBe(204);
+    expect(await authService.obtenerUsuarioPorId(carla.id)).toBeUndefined();
+    const miembros = await llamar('GET', `/api/grupos/${g.json.grupo.id}`, { token: luis.token });
+    expect(miembros.json.miembros).toHaveLength(1);
+  });
+});
+
 describe('cabeceras de seguridad', () => {
   it('la API envia cabeceras de helmet', async () => {
     const res = await fetch(`${base}/api/health`);
